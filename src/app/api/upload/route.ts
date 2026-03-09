@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 export const runtime = 'edge';
-import { randomUUID } from 'crypto';
 
 // Rate limiting - simple in-memory (in production, use Redis)
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -69,7 +68,7 @@ export async function POST(request: NextRequest) {
     const creditsRequired = Math.ceil(files.length / 5);
 
     // Create job
-    const jobId = randomUUID();
+    const jobId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     const { error: dbError } = await db.from('Job').insert([

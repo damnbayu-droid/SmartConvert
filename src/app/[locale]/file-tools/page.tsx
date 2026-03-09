@@ -1,5 +1,7 @@
 import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
+
+export const runtime = 'edge';
 import { Footer } from '@/components/footer';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -100,11 +102,10 @@ export default async function FileToolsPage({
             {fileTools.map((tool) => (
               <Card
                 key={tool.slug}
-                className={`group transition-colors h-full ${
-                  tool.comingSoon
+                className={`group transition-colors h-full ${tool.comingSoon
                     ? 'opacity-60 cursor-not-allowed'
                     : 'hover:border-primary cursor-pointer'
-                }`}
+                  }`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
