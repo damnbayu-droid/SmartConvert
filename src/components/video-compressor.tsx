@@ -27,6 +27,7 @@ import {
     Info,
 } from 'lucide-react';
 import {
+    getFFmpeg,
     processVideo,
     isMobileDevice,
     formatBytes,
@@ -160,8 +161,7 @@ export function VideoCompressor() {
         setFfmpegLoading(true);
 
         try {
-            // Lazy-load FFmpeg
-            const { getFFmpeg } = await import('@/lib/video-processor');
+            // Load FFmpeg engine (lazy-loaded internally on first call)
             await getFFmpeg();
             setFfmpegLoading(false);
 
