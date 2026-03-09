@@ -1,20 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let _db: SupabaseClient | null = null;
 
-const globalForSupabase = globalThis as unknown as {
-  supabase: ReturnType<typeof createClient> | undefined;
-};
+/**
+ * Lazy-initialized Supabase client.
+ * Avoids crashing at module evaluation during Cloudflare build
+ * when env vars are not yet available.
+ */
+function getDb(): SupabaseClient {
+  if (_db) return _db;
 
-// Create a globally cached Supabase REST client instead of Prisma for strict Edge compatibility
-export const db = (
-  globalForSupabase.supabase ??
-  createClient(supabaseUrl, supabaseKey, {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
+
+  _db = createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,
     },
-  })
-) as any;
+  });
 
-if (process.env.NODE_ENV !== 'production') globalForSupabase.supabase = db;
+  return _db;
+}
+
+// Proxy so existing `db.from(...)` calls keep working unchanged
+export const db = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return (getDb() as any)[prop];
+  },
+});
