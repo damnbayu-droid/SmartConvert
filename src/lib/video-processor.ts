@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Video processor using FFmpeg loaded from CDN at runtime.
- * This bypasses Cloudflare's bundler which cannot handle @ffmpeg/ffmpeg's
- * internal dynamic imports ("Cannot find module as expression is too dynamic").
+ * Self-contained video processor.
+ * Loads ONLY @ffmpeg/ffmpeg from CDN. All utility functions are implemented locally.
+ * This completely bypasses Cloudflare's edge bundler.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -11,47 +11,58 @@
 let ffmpegInstance: any = null;
 let loadingPromise: Promise<any> | null = null;
 
+/* ─── Self-implemented utilities (replaces @ffmpeg/util) ─── */
+
+async function toBlobURL(url: string, mimeType: string): Promise<string> {
+    const response = await fetch(url);
+    const buf = await response.arrayBuffer();
+    const blob = new Blob([buf], { type: mimeType });
+    return URL.createObjectURL(blob);
+}
+
+async function fileToUint8Array(file: File): Promise<Uint8Array> {
+    const buf = await file.arrayBuffer();
+    return new Uint8Array(buf);
+}
+
 /* ─── CDN Script Loader ─── */
 
-function loadScript(src: string, globalName: string): Promise<void> {
+function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
-        // Check if already loaded
-        if ((window as any)[globalName]) {
+        // Avoid duplicate loads
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
             resolve();
             return;
         }
         const script = document.createElement('script');
         script.src = src;
+        script.crossOrigin = 'anonymous';
         script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        script.onerror = () => reject(new Error(`Failed to load: ${src}`));
         document.head.appendChild(script);
     });
 }
 
 /**
- * Load FFmpeg from CDN at runtime (no bundler involvement).
+ * Lazy-load FFmpeg from CDN. Only called in the browser at runtime.
  */
 export async function getFFmpeg(): Promise<any> {
     if (ffmpegInstance) return ffmpegInstance;
     if (loadingPromise) return loadingPromise;
 
     loadingPromise = (async () => {
-        // Load UMD builds from CDN — these set window globals
-        await loadScript(
-            'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',
-            'FFmpegWASM'
-        );
-        await loadScript(
-            'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js',
-            'FFmpegUtil'
-        );
+        // Load only the FFmpeg wrapper (UMD) — no @ffmpeg/util needed
+        await loadScript('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js');
 
-        const { FFmpeg } = (window as any).FFmpegWASM;
-        const { toBlobURL } = (window as any).FFmpegUtil;
+        const FFmpegWASM = (window as any).FFmpegWASM;
+        if (!FFmpegWASM || !FFmpegWASM.FFmpeg) {
+            throw new Error('FFmpeg library failed to initialize');
+        }
 
-        const ff = new FFmpeg();
+        const ff = new FFmpegWASM.FFmpeg();
 
-        // Load the single-threaded WASM core from CDN
+        // Load single-threaded WASM core from CDN
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
         await ff.load({
@@ -99,34 +110,28 @@ export async function processVideo(
     onProgress: (pct: number, stage: string) => void,
 ): Promise<ProcessingResult> {
     const ff = await getFFmpeg();
-    const { fetchFile } = (window as any).FFmpegUtil;
 
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase() || '.mp4';
     const inputName = `input${ext}`;
 
-    // Write file into WASM virtual FS
-    onProgress(0, 'Loading video…');
-    const fileData = await fetchFile(file);
+    onProgress(2, 'Reading video file…');
+    const fileData = await fileToUint8Array(file);
     await ff.writeFile(inputName, fileData);
 
     const crf = CRF_MAP[settings.preset];
     let currentInput = inputName;
 
-    // Step 1: Trim (if requested)
+    // Step 1: Trim
     if (settings.trimStart !== undefined || settings.trimEnd !== undefined) {
-        onProgress(5, 'Trimming video…');
+        onProgress(8, 'Trimming video…');
         const trimArgs = ['-i', currentInput];
-
         if (settings.trimStart !== undefined && settings.trimStart > 0) {
             trimArgs.push('-ss', String(settings.trimStart));
         }
         if (settings.trimEnd !== undefined) {
             const duration = settings.trimEnd - (settings.trimStart ?? 0);
-            if (duration > 0) {
-                trimArgs.push('-t', String(duration));
-            }
+            if (duration > 0) trimArgs.push('-t', String(duration));
         }
-
         trimArgs.push('-c', 'copy', '-avoid_negative_ts', '1', 'trimmed.mp4');
         await ff.exec(trimArgs);
         currentInput = 'trimmed.mp4';
@@ -136,10 +141,9 @@ export async function processVideo(
 
     // Step 2: Encode MP4 H.264
     if (settings.exportMp4) {
-        onProgress(10, 'Compressing MP4 (H.264)…');
-
+        onProgress(12, 'Compressing MP4 (H.264)…');
         ff.on('progress', ({ progress }: { progress: number }) => {
-            const pct = 10 + Math.round(progress * 40);
+            const pct = 12 + Math.round(progress * 38);
             onProgress(Math.min(pct, 50), 'Compressing MP4 (H.264)…');
         });
 
@@ -155,20 +159,17 @@ export async function processVideo(
         ]);
 
         const mp4Data = await ff.readFile('output.mp4');
-        const mp4Bytes = mp4Data instanceof Uint8Array ? mp4Data : new TextEncoder().encode(String(mp4Data));
-        const mp4Copy = new Uint8Array(mp4Bytes.length);
-        mp4Copy.set(mp4Bytes);
-        result.mp4Size = mp4Copy.byteLength;
-        result.mp4Url = URL.createObjectURL(new Blob([mp4Copy], { type: 'video/mp4' }));
+        const mp4Bytes = mp4Data instanceof Uint8Array ? mp4Data : new Uint8Array(0);
+        result.mp4Size = mp4Bytes.byteLength;
+        result.mp4Url = URL.createObjectURL(new Blob([mp4Bytes], { type: 'video/mp4' }));
     }
 
     // Step 3: Encode WebM VP9
     if (settings.exportWebm) {
         onProgress(55, 'Encoding WebM (VP9)…');
-
         ff.on('progress', ({ progress }: { progress: number }) => {
-            const pct = 55 + Math.round(progress * 40);
-            onProgress(Math.min(pct, 95), 'Encoding WebM (VP9)…');
+            const pct = 55 + Math.round(progress * 38);
+            onProgress(Math.min(pct, 93), 'Encoding WebM (VP9)…');
         });
 
         await ff.exec([
@@ -182,21 +183,18 @@ export async function processVideo(
         ]);
 
         const webmData = await ff.readFile('output.webm');
-        const webmBytes = webmData instanceof Uint8Array ? webmData : new TextEncoder().encode(String(webmData));
-        const webmCopy = new Uint8Array(webmBytes.length);
-        webmCopy.set(webmBytes);
-        result.webmSize = webmCopy.byteLength;
-        result.webmUrl = URL.createObjectURL(new Blob([webmCopy], { type: 'video/webm' }));
+        const webmBytes = webmData instanceof Uint8Array ? webmData : new Uint8Array(0);
+        result.webmSize = webmBytes.byteLength;
+        result.webmUrl = URL.createObjectURL(new Blob([webmBytes], { type: 'video/webm' }));
     }
 
-    // Cleanup virtual FS
-    onProgress(98, 'Finalizing…');
-    const filesToClean = [inputName, 'trimmed.mp4', 'output.mp4', 'output.webm'];
-    for (const f of filesToClean) {
-        try { await ff.deleteFile(f); } catch { /* ignore */ }
+    // Cleanup
+    onProgress(97, 'Finalizing…');
+    for (const f of [inputName, 'trimmed.mp4', 'output.mp4', 'output.webm']) {
+        try { await ff.deleteFile(f); } catch { /* ok */ }
     }
 
-    onProgress(100, 'Done!');
+    onProgress(100, 'Complete!');
     return result;
 }
 

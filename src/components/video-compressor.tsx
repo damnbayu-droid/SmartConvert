@@ -25,6 +25,10 @@ import {
     HardDrive,
     MonitorSmartphone,
     Info,
+    CheckCircle2,
+    ArrowDown,
+    Film,
+    Wand2,
 } from 'lucide-react';
 import {
     getFFmpeg,
@@ -41,9 +45,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 /* ─── Constants ─── */
-const MAX_DESKTOP = 100 * 1024 * 1024; // 100 MB
-const MAX_MOBILE = 50 * 1024 * 1024;   // 50 MB
-const MAX_DURATION = 10 * 60;           // 10 min
+const MAX_DESKTOP = 100 * 1024 * 1024;
+const MAX_MOBILE = 50 * 1024 * 1024;
+const MAX_DURATION = 10 * 60;
 const ACCEPTED_VIDEO = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo'];
 const ACCEPTED_EXT = ['.mp4', '.mov', '.mkv', '.webm', '.avi'];
 
@@ -57,15 +61,24 @@ interface VideoMeta {
     name: string;
 }
 
+/* ─── Pipeline Steps (for interactive visualization) ─── */
+const PIPELINE_STEPS = [
+    { id: 'load', label: 'Loading Engine', icon: Wand2, range: [0, 5] },
+    { id: 'read', label: 'Reading File', icon: Upload, range: [5, 10] },
+    { id: 'trim', label: 'Trimming', icon: Scissors, range: [10, 12] },
+    { id: 'mp4', label: 'Encoding MP4', icon: Film, range: [12, 50] },
+    { id: 'webm', label: 'Encoding WebM', icon: Video, range: [50, 93] },
+    { id: 'done', label: 'Finalizing', icon: CheckCircle2, range: [93, 100] },
+];
+
 /* ─── Presets ─── */
-const PRESETS: { key: CompressionPreset; label: string; desc: string; crf: number }[] = [
-    { key: 'high', label: 'High Quality', desc: 'Best visual quality, moderate compression', crf: 20 },
-    { key: 'balanced', label: 'Balanced', desc: 'Recommended – good quality & size', crf: 24 },
-    { key: 'max', label: 'Maximum Compression', desc: 'Smallest file size', crf: 28 },
+const PRESETS: { key: CompressionPreset; label: string; desc: string; crf: number; color: string }[] = [
+    { key: 'high', label: 'High Quality', desc: 'Best visual quality, moderate compression', crf: 20, color: 'text-blue-500' },
+    { key: 'balanced', label: 'Balanced', desc: 'Recommended – good quality & size', crf: 24, color: 'text-green-500' },
+    { key: 'max', label: 'Maximum Compression', desc: 'Smallest file size', crf: 28, color: 'text-orange-500' },
 ];
 
 export function VideoCompressor() {
-    /* State */
     const [stage, setStage] = useState<Stage>('idle');
     const [file, setFile] = useState<File | null>(null);
     const [meta, setMeta] = useState<VideoMeta | null>(null);
@@ -79,14 +92,33 @@ export function VideoCompressor() {
     const [result, setResult] = useState<ProcessingResult | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const [ffmpegLoading, setFfmpegLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+    const [elapsedTime, setElapsedTime] = useState(0);
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         setIsMobile(isMobileDevice());
     }, []);
+
+    // Timer for processing
+    useEffect(() => {
+        if (stage === 'processing') {
+            setElapsedTime(0);
+            timerRef.current = setInterval(() => {
+                setElapsedTime(prev => prev + 1);
+            }, 1000);
+        } else {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [stage]);
 
     const maxSize = isMobile ? MAX_MOBILE : MAX_DESKTOP;
 
@@ -94,50 +126,34 @@ export function VideoCompressor() {
     const handleFile = useCallback((f: File) => {
         const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
         if (!ACCEPTED_VIDEO.includes(f.type) && !ACCEPTED_EXT.includes(ext)) {
-            toast.error('Unsupported video format. Accepted: MP4, MOV, MKV, WebM, AVI');
+            toast.error('Unsupported format. Accepted: MP4, MOV, MKV, WebM, AVI');
             return;
         }
         if (f.size > maxSize) {
-            toast.error(`File too large. Maximum is ${formatBytes(maxSize)}.`);
+            toast.error(`File too large. Max: ${formatBytes(maxSize)}.`);
             return;
         }
-
         setFile(f);
-
-        // Extract meta via a hidden <video> element
         const url = URL.createObjectURL(f);
         const v = document.createElement('video');
         v.preload = 'metadata';
         v.onloadedmetadata = () => {
             if (v.duration > MAX_DURATION) {
-                toast.error(`Video is too long. Maximum duration is ${formatDuration(MAX_DURATION)}.`);
+                toast.error(`Video too long. Max: ${formatDuration(MAX_DURATION)}.`);
                 URL.revokeObjectURL(url);
                 setFile(null);
                 return;
             }
-            setMeta({
-                duration: v.duration,
-                width: v.videoWidth,
-                height: v.videoHeight,
-                size: f.size,
-                name: f.name,
-            });
+            setMeta({ duration: v.duration, width: v.videoWidth, height: v.videoHeight, size: f.size, name: f.name });
             setStage('loaded');
-            if (videoRef.current) {
-                videoRef.current.src = url;
-            }
+            if (videoRef.current) videoRef.current.src = url;
         };
-        v.onerror = () => {
-            toast.error('Could not read video metadata.');
-            URL.revokeObjectURL(url);
-        };
+        v.onerror = () => { toast.error('Could not read video.'); URL.revokeObjectURL(url); };
         v.src = url;
     }, [maxSize]);
 
-    /* ─── Drag & Drop ─── */
     const onDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
+        e.preventDefault(); setIsDragging(false);
         const f = e.dataTransfer.files?.[0];
         if (f) handleFile(f);
     }, [handleFile]);
@@ -150,25 +166,18 @@ export function VideoCompressor() {
     /* ─── Process ─── */
     const startProcessing = useCallback(async () => {
         if (!file) return;
-        if (!exportMp4 && !exportWebm) {
-            toast.error('Please select at least one output format.');
-            return;
-        }
+        if (!exportMp4 && !exportWebm) { toast.error('Select at least one output format.'); return; }
 
         setStage('processing');
         setProgress(0);
-        setProgressLabel('Loading FFmpeg engine…');
-        setFfmpegLoading(true);
+        setProgressLabel('Initializing FFmpeg engine…');
+        setErrorMsg('');
 
         try {
-            // Load FFmpeg engine (lazy-loaded internally on first call)
             await getFFmpeg();
-            setFfmpegLoading(false);
 
             const settings: VideoSettings = {
-                preset,
-                exportMp4,
-                exportWebm,
+                preset, exportMp4, exportWebm,
                 trimStart: trimStart ? parseFloat(trimStart) : undefined,
                 trimEnd: trimEnd ? parseFloat(trimEnd) : undefined,
             };
@@ -180,6 +189,7 @@ export function VideoCompressor() {
 
             setResult(res);
             setStage('completed');
+            toast.success('Video compressed successfully!');
         } catch (err: unknown) {
             console.error('Video processing error:', err);
             const msg = err instanceof Error ? err.message : String(err);
@@ -191,371 +201,322 @@ export function VideoCompressor() {
 
     /* ─── Reset ─── */
     const reset = useCallback(() => {
-        // Revoke old blob URLs
         if (result?.mp4Url) URL.revokeObjectURL(result.mp4Url);
         if (result?.webmUrl) URL.revokeObjectURL(result.webmUrl);
-
-        setStage('idle');
-        setFile(null);
-        setMeta(null);
-        setPreset('balanced');
-        setTrimStart('');
-        setTrimEnd('');
-        setExportMp4(true);
-        setExportWebm(false);
-        setProgress(0);
-        setProgressLabel('');
-        setResult(null);
-        setErrorMsg('');
+        setStage('idle'); setFile(null); setMeta(null); setPreset('balanced');
+        setTrimStart(''); setTrimEnd(''); setExportMp4(true); setExportWebm(false);
+        setProgress(0); setProgressLabel(''); setResult(null); setErrorMsg(''); setElapsedTime(0);
     }, [result]);
 
-    /* ─── Estimated size ─── */
     const estimatedSize = meta
-        ? estimateCompressedSize(
-            meta.size,
-            trimEnd ? parseFloat(trimEnd) - (parseFloat(trimStart) || 0) : meta.duration,
-            preset,
-        )
+        ? estimateCompressedSize(meta.size, trimEnd ? parseFloat(trimEnd) - (parseFloat(trimStart) || 0) : meta.duration, preset)
         : 0;
 
-    /* ═══════════════ RENDER ═══════════════ */
+    /* ─── Get active pipeline step ─── */
+    const getActiveStep = (pct: number) => {
+        for (let i = PIPELINE_STEPS.length - 1; i >= 0; i--) {
+            if (pct >= PIPELINE_STEPS[i].range[0]) return i;
+        }
+        return 0;
+    };
 
+    /* ═══════════════ RENDER ═══════════════ */
     return (
         <div className="space-y-6">
-            {/* Features bar */}
-            <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                    <Zap className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">Browser Processing</span>
-                </div>
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">100% Private</span>
-                </div>
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                    <Video className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">H.264 + WebM</span>
-                </div>
+            {/* Feature badges */}
+            <div className="grid grid-cols-3 gap-3">
+                {[
+                    { icon: Zap, label: 'Browser Processing', color: 'text-yellow-500' },
+                    { icon: Shield, label: '100% Private', color: 'text-green-500' },
+                    { icon: Video, label: 'H.264 + WebM', color: 'text-blue-500' },
+                ].map(({ icon: Icon, label, color }) => (
+                    <div key={label} className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border">
+                        <Icon className={cn('h-4 w-4', color)} />
+                        <span className="text-xs sm:text-sm font-medium">{label}</span>
+                    </div>
+                ))}
             </div>
 
             {/* Mobile warning */}
             {isMobile && stage === 'idle' && (
-                <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
+                <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
                     <MonitorSmartphone className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div>
                         <p className="text-sm font-medium text-yellow-700">Mobile Device Detected</p>
-                        <p className="text-xs text-yellow-600">
-                            Large videos may fail on mobile devices. Maximum file size is limited to 50 MB.
-                        </p>
+                        <p className="text-xs text-yellow-600">Upload limited to 50 MB. Large videos may fail.</p>
                     </div>
                 </div>
             )}
 
-            {/* ── STAGE: IDLE ── */}
+            {/* ══════ IDLE ══════ */}
             {stage === 'idle' && (
                 <Card
                     className={cn(
-                        'border-2 border-dashed transition-colors cursor-pointer',
-                        isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+                        'border-2 border-dashed transition-all duration-300 cursor-pointer',
+                        isDragging ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border hover:border-primary/50',
                     )}
                     onDrop={onDrop}
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                 >
                     <CardContent className="flex flex-col items-center justify-center py-16 px-4">
-                        <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-lg font-medium mb-2">Drag & drop your video here</p>
-                        <p className="text-muted-foreground mb-4">or</p>
+                        <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                            <Upload className={cn("h-8 w-8 transition-transform", isDragging ? "text-primary scale-110" : "text-muted-foreground")} />
+                        </div>
+                        <p className="text-lg font-semibold mb-1">Drop your video here</p>
+                        <p className="text-muted-foreground text-sm mb-4">or click to browse</p>
                         <label>
-                            <input
-                                type="file"
-                                accept={ACCEPTED_EXT.join(',')}
-                                onChange={onFileInput}
-                                className="hidden"
-                            />
-                            <Button variant="outline" asChild>
-                                <span>Select File</span>
+                            <input type="file" accept={ACCEPTED_EXT.join(',')} onChange={onFileInput} className="hidden" />
+                            <Button variant="default" size="lg" asChild>
+                                <span className="gap-2"><Upload className="h-4 w-4" /> Select Video File</span>
                             </Button>
                         </label>
-                        <div className="mt-4 text-sm text-muted-foreground text-center space-y-1">
-                            <p>Supported: MP4, MOV, MKV, WebM, AVI</p>
-                            <p>Max size: {formatBytes(maxSize)} · Max duration: {formatDuration(MAX_DURATION)}</p>
+                        <div className="mt-6 flex flex-wrap justify-center gap-2">
+                            {['MP4', 'MOV', 'MKV', 'WebM', 'AVI'].map(fmt => (
+                                <Badge key={fmt} variant="secondary" className="text-xs">{fmt}</Badge>
+                            ))}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-3">
+                            Max: {formatBytes(maxSize)} · Duration: {formatDuration(MAX_DURATION)}
+                        </p>
                     </CardContent>
                 </Card>
             )}
 
-            {/* ── STAGE: LOADED (settings) ── */}
+            {/* ══════ LOADED ══════ */}
             {stage === 'loaded' && meta && (
-                <div className="space-y-6">
-                    {/* File info + preview */}
+                <div className="space-y-5">
+                    {/* Video preview + info */}
                     <Card>
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-lg flex items-center gap-2">
-                                    <FileVideo className="h-5 w-5" />
-                                    Video Information
+                                    <FileVideo className="h-5 w-5" /> Video Information
                                 </CardTitle>
-                                <Button variant="ghost" size="icon" onClick={reset}>
-                                    <X className="h-4 w-4" />
-                                </Button>
+                                <Button variant="ghost" size="icon" onClick={reset}><X className="h-4 w-4" /></Button>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="grid sm:grid-cols-2 gap-4">
-                                {/* Preview */}
-                                <div className="rounded-lg overflow-hidden bg-black aspect-video">
-                                    <video
-                                        ref={videoRef}
-                                        controls
-                                        className="w-full h-full object-contain"
-                                    />
+                                <div className="rounded-xl overflow-hidden bg-black aspect-video">
+                                    <video ref={videoRef} controls className="w-full h-full object-contain" />
                                 </div>
-                                {/* Meta */}
                                 <div className="space-y-3 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <FileVideo className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">File:</span>
-                                        <span className="font-medium truncate">{meta.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <HardDrive className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Size:</span>
-                                        <span className="font-medium">{formatBytes(meta.size)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <MonitorSmartphone className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Resolution:</span>
-                                        <span className="font-medium">{meta.width}×{meta.height}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Duration:</span>
-                                        <span className="font-medium">{formatDuration(meta.duration)}</span>
-                                    </div>
+                                    {[
+                                        { icon: FileVideo, label: 'File', value: meta.name },
+                                        { icon: HardDrive, label: 'Size', value: formatBytes(meta.size) },
+                                        { icon: MonitorSmartphone, label: 'Resolution', value: `${meta.width}×${meta.height}` },
+                                        { icon: Clock, label: 'Duration', value: formatDuration(meta.duration) },
+                                    ].map(({ icon: Icon, label, value }) => (
+                                        <div key={label} className="flex items-center gap-2">
+                                            <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                            <span className="text-muted-foreground">{label}:</span>
+                                            <span className="font-medium truncate">{value}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Compression presets */}
+                    {/* Presets */}
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Settings2 className="h-5 w-5" />
-                                Compression Settings
+                                <Settings2 className="h-5 w-5" /> Compression Settings
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid gap-3">
                                 {PRESETS.map((p) => (
-                                    <button
-                                        key={p.key}
-                                        onClick={() => setPreset(p.key)}
+                                    <button key={p.key} onClick={() => setPreset(p.key)}
                                         className={cn(
-                                            'flex items-start gap-3 rounded-lg border p-4 text-left transition-colors',
-                                            preset === p.key
-                                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                                : 'border-border hover:border-primary/40',
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            'mt-0.5 h-4 w-4 rounded-full border-2',
-                                            preset === p.key ? 'border-primary bg-primary' : 'border-muted-foreground',
-                                        )} />
-                                        <div>
+                                            'flex items-start gap-3 rounded-xl border p-4 text-left transition-all',
+                                            preset === p.key ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm' : 'border-border hover:border-primary/40',
+                                        )}>
+                                        <div className={cn('mt-1 h-4 w-4 rounded-full border-2 transition-colors',
+                                            preset === p.key ? 'border-primary bg-primary' : 'border-muted-foreground')} />
+                                        <div className="flex-1">
                                             <p className="font-medium text-sm">{p.label}</p>
                                             <p className="text-xs text-muted-foreground">{p.desc} (CRF {p.crf})</p>
                                         </div>
+                                        {preset === p.key && <Badge variant="secondary" className="text-xs">Selected</Badge>}
                                     </button>
                                 ))}
                             </div>
-
-                            {/* Estimated output */}
-                            <div className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm">
-                                <Info className="h-4 w-4 text-primary" />
-                                <span>
-                                    <span className="text-muted-foreground">Estimated output:</span>{' '}
-                                    <span className="font-semibold">{formatBytes(estimatedSize)}</span>
-                                    {' '}
-                                    <span className="text-muted-foreground">
-                                        (≈{Math.round((1 - estimatedSize / meta.size) * 100)}% smaller)
+                            <div className="flex items-center gap-2 rounded-xl bg-primary/5 border border-primary/20 p-3 text-sm">
+                                <Info className="h-4 w-4 text-primary shrink-0" />
+                                <div>
+                                    <span className="text-muted-foreground">Estimated: </span>
+                                    <span className="font-bold">{formatBytes(estimatedSize)}</span>
+                                    <span className="text-green-600 font-medium ml-1">
+                                        (↓{Math.round((1 - estimatedSize / meta.size) * 100)}%)
                                     </span>
-                                </span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Trim controls */}
+                    {/* Trim */}
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Scissors className="h-5 w-5" />
-                                Trim Video
-                                <Badge variant="secondary" className="text-xs">Optional</Badge>
+                                <Scissors className="h-5 w-5" /> Trim Video <Badge variant="secondary" className="text-xs">Optional</Badge>
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="trim-start">Start Time (seconds)</Label>
-                                    <Input
-                                        id="trim-start"
-                                        type="number"
-                                        placeholder="0"
-                                        min={0}
-                                        max={meta.duration}
-                                        step={0.1}
-                                        value={trimStart}
-                                        onChange={(e) => setTrimStart(e.target.value)}
-                                    />
+                                    <Label htmlFor="trim-start">Start (seconds)</Label>
+                                    <Input id="trim-start" type="number" placeholder="0" min={0} max={meta.duration} step={0.1} value={trimStart} onChange={(e) => setTrimStart(e.target.value)} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="trim-end">End Time (seconds)</Label>
-                                    <Input
-                                        id="trim-end"
-                                        type="number"
-                                        placeholder={formatDuration(meta.duration)}
-                                        min={0}
-                                        max={meta.duration}
-                                        step={0.1}
-                                        value={trimEnd}
-                                        onChange={(e) => setTrimEnd(e.target.value)}
-                                    />
+                                    <Label htmlFor="trim-end">End (seconds)</Label>
+                                    <Input id="trim-end" type="number" placeholder={String(Math.floor(meta.duration))} min={0} max={meta.duration} step={0.1} value={trimEnd} onChange={(e) => setTrimEnd(e.target.value)} />
                                 </div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-2">
-                                Leave empty to keep the full video. Total duration: {formatDuration(meta.duration)}
-                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">Leave empty = full video ({formatDuration(meta.duration)})</p>
                         </CardContent>
                     </Card>
 
-                    {/* Output options */}
+                    {/* Output format */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Download className="h-5 w-5" />
-                                Output Formats
-                            </CardTitle>
+                            <CardTitle className="text-lg flex items-center gap-2"><Download className="h-5 w-5" /> Output</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="flex items-center gap-3">
-                                <Checkbox
-                                    id="export-mp4"
-                                    checked={exportMp4}
-                                    onCheckedChange={(v) => setExportMp4(!!v)}
-                                />
-                                <Label htmlFor="export-mp4" className="flex items-center gap-2 cursor-pointer">
-                                    Export MP4 (H.264)
-                                    <Badge variant="outline" className="text-xs">Recommended</Badge>
-                                </Label>
+                                <Checkbox id="mp4" checked={exportMp4} onCheckedChange={(v) => setExportMp4(!!v)} />
+                                <Label htmlFor="mp4" className="flex items-center gap-2 cursor-pointer">MP4 (H.264) <Badge variant="outline" className="text-xs">Recommended</Badge></Label>
                             </div>
                             <div className="flex items-center gap-3">
-                                <Checkbox
-                                    id="export-webm"
-                                    checked={exportWebm}
-                                    onCheckedChange={(v) => setExportWebm(!!v)}
-                                />
-                                <Label htmlFor="export-webm" className="cursor-pointer">
-                                    Export WebM (VP9)
-                                </Label>
+                                <Checkbox id="webm" checked={exportWebm} onCheckedChange={(v) => setExportWebm(!!v)} />
+                                <Label htmlFor="webm" className="cursor-pointer">WebM (VP9)</Label>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Start button */}
-                    <Button onClick={startProcessing} size="lg" className="w-full text-base py-6">
-                        <Zap className="mr-2 h-5 w-5" />
-                        Start Compression
+                    <Button onClick={startProcessing} size="lg" className="w-full text-base py-6 gap-2">
+                        <Zap className="h-5 w-5" /> Start Compression
                     </Button>
                 </div>
             )}
 
-            {/* ── STAGE: PROCESSING ── */}
+            {/* ══════ PROCESSING (Interactive Pipeline) ══════ */}
             {stage === 'processing' && (
-                <Card>
-                    <CardContent className="py-12">
-                        <div className="flex flex-col items-center text-center space-y-6">
-                            <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                <Card className="overflow-hidden">
+                    <CardContent className="py-8">
+                        <div className="flex flex-col items-center text-center space-y-8">
+                            {/* Animated spinner with progress */}
+                            <div className="relative">
+                                <div className="h-24 w-24 rounded-full border-4 border-muted flex items-center justify-center">
+                                    <span className="text-2xl font-bold text-primary">{Math.round(progress)}%</span>
+                                </div>
+                                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+                            </div>
+
                             <div>
                                 <p className="font-semibold text-lg mb-1">Processing Video</p>
                                 <p className="text-sm text-muted-foreground">{progressLabel}</p>
-                                {ffmpegLoading && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        First-time loading may take 10-20 seconds…
-                                    </p>
-                                )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Elapsed: {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                                </p>
                             </div>
-                            <div className="w-full max-w-md">
+
+                            {/* Progress bar */}
+                            <div className="w-full max-w-lg">
                                 <Progress value={progress} className="h-3" />
-                                <p className="text-sm font-medium mt-2">{Math.round(progress)}%</p>
                             </div>
-                            <div className="flex items-start gap-2 text-xs text-muted-foreground max-w-sm">
-                                <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-500 flex-shrink-0" />
-                                <span>Please keep this tab open. Video processing happens in your browser and may take a few minutes.</span>
+
+                            {/* Pipeline visualization */}
+                            <div className="w-full max-w-lg">
+                                <div className="grid grid-cols-6 gap-1">
+                                    {PIPELINE_STEPS.map((step, i) => {
+                                        const active = getActiveStep(progress);
+                                        const StepIcon = step.icon;
+                                        const isDone = i < active;
+                                        const isCurrent = i === active;
+                                        return (
+                                            <div key={step.id} className="flex flex-col items-center gap-1">
+                                                <div className={cn(
+                                                    'h-8 w-8 rounded-full flex items-center justify-center transition-all duration-500',
+                                                    isDone ? 'bg-green-500 text-white scale-100' :
+                                                        isCurrent ? 'bg-primary text-primary-foreground scale-110 animate-pulse' :
+                                                            'bg-muted text-muted-foreground scale-90',
+                                                )}>
+                                                    {isDone ? <CheckCircle2 className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                                                </div>
+                                                <span className={cn(
+                                                    'text-[10px] leading-tight text-center',
+                                                    isCurrent ? 'text-primary font-medium' : 'text-muted-foreground',
+                                                )}>{step.label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-2 text-xs text-muted-foreground max-w-sm rounded-lg bg-muted/50 p-3">
+                                <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
+                                <span>Keep this tab open. Processing happens in your browser.</span>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             )}
 
-            {/* ── STAGE: COMPLETED ── */}
+            {/* ══════ COMPLETED ══════ */}
             {stage === 'completed' && result && meta && (
-                <div className="space-y-6">
-                    {/* Summary */}
-                    <Card className="border-green-500/30 bg-green-500/5">
-                        <CardContent className="py-6">
+                <div className="space-y-5">
+                    <Card className="border-green-500/30 bg-gradient-to-b from-green-500/5 to-transparent">
+                        <CardContent className="py-8">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
-                                    <Download className="h-5 w-5 text-white" />
+                                <div className="h-12 w-12 rounded-2xl bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/20">
+                                    <CheckCircle2 className="h-6 w-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="font-semibold text-lg">Compression Complete!</p>
-                                    <p className="text-sm text-muted-foreground">Your optimized videos are ready to download.</p>
+                                    <p className="font-bold text-lg">Compression Complete!</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Processed in {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Stats grid */}
-                            <div className="grid sm:grid-cols-3 gap-4 mb-6">
-                                <div className="rounded-lg bg-background p-4 text-center border">
-                                    <p className="text-xs text-muted-foreground mb-1">Original Size</p>
+                            {/* Stats */}
+                            <div className="grid sm:grid-cols-3 gap-3 mb-6">
+                                <div className="rounded-xl bg-background p-4 text-center border">
+                                    <p className="text-xs text-muted-foreground mb-1">Original</p>
                                     <p className="text-xl font-bold">{formatBytes(meta.size)}</p>
                                 </div>
-                                {result.mp4Size && (
-                                    <div className="rounded-lg bg-background p-4 text-center border">
-                                        <p className="text-xs text-muted-foreground mb-1">Compressed MP4</p>
+                                {result.mp4Size != null && (
+                                    <div className="rounded-xl bg-background p-4 text-center border border-green-500/20">
+                                        <p className="text-xs text-muted-foreground mb-1">MP4</p>
                                         <p className="text-xl font-bold">{formatBytes(result.mp4Size)}</p>
-                                        <p className="text-xs text-green-600 font-medium">
-                                            {Math.round((1 - result.mp4Size / meta.size) * 100)}% smaller
-                                        </p>
+                                        <p className="text-xs text-green-600 font-semibold">↓{Math.round((1 - result.mp4Size / meta.size) * 100)}%</p>
                                     </div>
                                 )}
-                                {result.webmSize && (
-                                    <div className="rounded-lg bg-background p-4 text-center border">
-                                        <p className="text-xs text-muted-foreground mb-1">Compressed WebM</p>
+                                {result.webmSize != null && (
+                                    <div className="rounded-xl bg-background p-4 text-center border border-blue-500/20">
+                                        <p className="text-xs text-muted-foreground mb-1">WebM</p>
                                         <p className="text-xl font-bold">{formatBytes(result.webmSize)}</p>
-                                        <p className="text-xs text-green-600 font-medium">
-                                            {Math.round((1 - result.webmSize / meta.size) * 100)}% smaller
-                                        </p>
+                                        <p className="text-xs text-blue-600 font-semibold">↓{Math.round((1 - result.webmSize / meta.size) * 100)}%</p>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Download buttons */}
+                            {/* Downloads */}
                             <div className="flex flex-wrap gap-3">
                                 {result.mp4Url && (
                                     <a href={result.mp4Url} download={`compressed_${meta.name.replace(/\.[^.]+$/, '.mp4')}`}>
-                                        <Button size="lg" className="gap-2">
-                                            <Download className="h-4 w-4" />
-                                            Download MP4
+                                        <Button size="lg" className="gap-2 shadow-md">
+                                            <Download className="h-4 w-4" /> Download MP4
                                         </Button>
                                     </a>
                                 )}
                                 {result.webmUrl && (
                                     <a href={result.webmUrl} download={`compressed_${meta.name.replace(/\.[^.]+$/, '.webm')}`}>
                                         <Button size="lg" variant="outline" className="gap-2">
-                                            <Download className="h-4 w-4" />
-                                            Download WebM
+                                            <Download className="h-4 w-4" /> Download WebM
                                         </Button>
                                     </a>
                                 )}
@@ -563,31 +524,28 @@ export function VideoCompressor() {
                         </CardContent>
                     </Card>
 
-                    {/* New compression */}
                     <Button variant="outline" onClick={reset} className="w-full gap-2">
-                        <RotateCcw className="h-4 w-4" />
-                        Compress Another Video
+                        <RotateCcw className="h-4 w-4" /> Compress Another Video
                     </Button>
                 </div>
             )}
 
-            {/* ── STAGE: ERROR ── */}
+            {/* ══════ ERROR ══════ */}
             {stage === 'error' && (
-                <Card className="border-destructive">
+                <Card className="border-destructive/50">
                     <CardContent className="py-8 text-center">
-                        <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
-                        <p className="text-destructive font-medium mb-1">Processing Failed</p>
-                        <p className="text-sm text-muted-foreground mb-2">
-                            The video could not be processed. This may happen with very large files or unsupported codecs.
+                        <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-3" />
+                        <p className="text-destructive font-semibold text-lg mb-1">Processing Failed</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                            Could not process the video. Try a smaller file or different format.
                         </p>
                         {errorMsg && (
-                            <p className="text-xs text-destructive/80 font-mono bg-destructive/5 rounded p-2 mb-4 break-all">
+                            <div className="text-xs text-destructive/80 font-mono bg-destructive/5 rounded-lg p-3 mb-4 max-w-md mx-auto break-all">
                                 {errorMsg}
-                            </p>
+                            </div>
                         )}
                         <Button variant="outline" onClick={reset} className="gap-2">
-                            <RotateCcw className="h-4 w-4" />
-                            Try Again
+                            <RotateCcw className="h-4 w-4" /> Try Again
                         </Button>
                     </CardContent>
                 </Card>
