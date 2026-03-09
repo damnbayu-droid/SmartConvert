@@ -1,0 +1,124 @@
+{
+  "metadata": {
+    "title": "Smart Convert | Secured and Free",
+    "description": "Konversi gambar ke format WebP dengan pengurangan ukuran hingga 90%. Alat kompresi dan konversi gambar online gratis. Cepat, aman, dan ramah seluler."
+  },
+  "nav": {
+    "home": "Beranda",
+    "imageTools": "Alat Gambar",
+    "fileTools": "Alat File",
+    "blog": "Blog",
+    "language": "Bahasa"
+  },
+  "hero": {
+    "title": "Konversi Gambar ke WebP Online",
+    "subtitle": "Kurangi Ukuran Gambar Hingga 90%",
+    "description": "Konversi gambar cepat, gratis, dan aman. Konversi JPG, PNG, HEIC, dan format lainnya ke WebP dengan kehilangan kualitas minimal.",
+    "cta": {
+      "upload": "Unggah Gambar",
+      "convert": "Konversi Sekarang"
+    },
+    "features": {
+      "bulk": "Unggah Massal",
+      "fast": "Sangat Cepat",
+      "secure": "100% Aman"
+    }
+  },
+  "upload": {
+    "title": "Unggah Gambar Anda",
+    "dragDrop": "Seret dan lepas gambar di sini",
+    "or": "atau",
+    "browse": "Pilih File",
+    "supportedFormats": "Format yang didukung: JPG, JPEG, PNG, WEBP, HEIC",
+    "maxSize": "Ukuran maksimal: 100MB",
+    "maxFiles": "Maksimal file: 30",
+    "uploading": "Mengunggah file...",
+    "success": "Gambar berhasil diunggah",
+    "error": "Unggah gagal. Silakan coba lagi."
+  },
+  "processing": {
+    "title": "Memproses Gambar",
+    "converting": "Mengkonversi ke WebP...",
+    "filesProcessed": "file diproses",
+    "remaining": "tersisa",
+    "complete": "Pemrosesan Selesai!",
+    "error": "Pemrosesan gagal"
+  },
+  "result": {
+    "title": "File Anda Siap",
+    "download": "Unduh ZIP",
+    "downloadSingle": "Unduh File",
+    "originalSize": "Ukuran Asli",
+    "newSize": "Ukuran Baru",
+    "saved": "Hemat",
+    "newConversion": "Konversi Baru"
+  },
+  "cta": {
+    "title": "Dukung Pengembang",
+    "message": "Klik Untuk Melanjutkan",
+    "description": "Dukungan Anda membantu kami menjaga alat ini tetap gratis untuk semua orang. Silakan klik tombol di bawah untuk melanjutkan pemrosesan file Anda.",
+    "button": "Lanjutkan Pemrosesan",
+    "redirecting": "Mengalihkan ke sponsor...",
+    "returning": "Kembali ke Smart Convert...",
+    "thankYou": "Terima kasih atas dukungan Anda!",
+    "processingContinues": "Pemrosesan akan dilanjutkan sebentar lagi..."
+  },
+  "credit": {
+    "required": "kredit diperlukan",
+    "available": "kredit tersedia",
+    "insufficient": "Kredit tidak mencukupi. Dukung pengembang untuk melanjutkan.",
+    "batchInfo": "5 file = 1 kredit"
+  },
+  "tool": {
+    "howToUse": "Cara Menggunakan",
+    "step1": "Unggah gambar Anda",
+    "step2": "Klik Konversi",
+    "step3": "Unduh file WebP Anda",
+    "faq": "Pertanyaan yang Sering Diajukan",
+    "relatedTools": "Alat Terkait"
+  },
+  "sidebar": {
+    "allTools": "Semua Alat",
+    "imageConversion": "Konversi Gambar",
+    "imageCompression": "Kompresi Gambar",
+    "fileConversion": "Konversi File",
+    "fileCompression": "Kompresi File",
+    "heicTools": "Alat HEIC"
+  },
+  "tools": {
+    "imagetowebp": {
+      "name": "Gambar ke WebP",
+      "description": "Konversi gambar ke format WebP dengan kompresi berkualitas tinggi"
+    },
+    "jpgtowebp": {
+      "name": "JPG ke WebP",
+      "description": "Konversi gambar JPG ke format WebP"
+    },
+    "pngtowebp": {
+      "name": "PNG ke WebP",
+      "description": "Konversi gambar PNG ke format WebP"
+    },
+    "heictowebp": {
+      "name": "HEIC ke WebP",
+      "description": "Konversi gambar HEIC/HEIF dari iPhone ke format WebP"
+    },
+    "compressimage": {
+      "name": "Kompres Gambar",
+      "description": "Kurangi ukuran file gambar dengan tetap mempertahankan kualitas"
+    }
+  },
+  "errors": {
+    "invalidFile": "Tipe file tidak valid. Silakan unggah gambar yang valid.",
+    "fileTooLarge": "File terlalu besar. Ukuran maksimal adalah 100MB.",
+    "tooManyFiles": "Terlalu banyak file. Maksimal adalah 30 file per batch.",
+    "processingFailed": "Pemrosesan gagal. Silakan coba lagi.",
+    "rateLimitExceeded": "Batas tarif terlampaui. Silakan tunggu sebelum mencoba lagi.",
+    "jobNotFound": "Pekerjaan tidak ditemukan."
+  },
+  "footer": {
+    "copyright": "© 2024 Smart Convert. Hak cipta dilindungi.",
+    "privacy": "Kebijakan Privasi",
+    "terms": "Ketentuan Layanan",
+    "contact": "Kontak"
+  }
+}

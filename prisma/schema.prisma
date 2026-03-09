@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Tools available in the platform
+model Tool {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  category      String
+  priority      Boolean  @default(false)
+  inputFormats  String   // JSON string of formats
+  outputFormats String   // JSON string of formats
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([slug])
+  @@index([category])
+}
+
+// Conversion jobs
+model Job {
+  id             String   @id @default(cuid())
+  toolSlug       String
+  status         String   @default("pending") // pending, processing, waiting_cta, completed, failed
+  totalFiles     Int      @default(0)
+  processedFiles Int      @default(0)
+  creditsUsed    Int      @default(0)
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  inputFiles     String?  // JSON string of input file paths
+  outputFiles    String?  // JSON string of output file info
+  downloadUrl    String?
+  clientIp       String?
+  
+  sessions       JobSession[]
+
+  @@index([status])
+  @@index([expiresAt])
+  @@index([toolSlug])
+}
+
+// CTA tracking sessions
+model JobSession {
+  id        String   @id @default(cuid())
+  jobId     String
+  creditStep Int     @default(0)
+  status    String   @default("pending") // pending, completed
+  createdAt DateTime @default(now())
+  
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
+}
+
+// Rate limiting per IP
+model RateLimit {
+  id        String   @id @default(cuid())
+  ip        String
+  fileCount Int      @default(0)
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([ip])
+  @@index([resetAt])
+}
+
+// Temporary file storage tracking
+model TempFile {
+  id        String   @id @default(cuid())
+  jobId     String
+  path      String
+  type      String   // input or output
+  size      Int
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([jobId])
+  @@index([expiresAt])
+}

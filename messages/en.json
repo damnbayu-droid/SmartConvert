@@ -1,0 +1,124 @@
+{
+  "metadata": {
+    "title": "Smart Convert | Secured and Free",
+    "description": "Convert images to WebP format with up to 90% size reduction. Free online image compression and conversion tool. Fast, secure, and mobile-friendly."
+  },
+  "nav": {
+    "home": "Home",
+    "imageTools": "Image Tools",
+    "fileTools": "File Tools",
+    "blog": "Blog",
+    "language": "Language"
+  },
+  "hero": {
+    "title": "Convert Images to WebP Online",
+    "subtitle": "Reduce Image Size Up to 90%",
+    "description": "Fast, free, and secure image conversion. Convert JPG, PNG, HEIC, and other formats to WebP with minimal quality loss.",
+    "cta": {
+      "upload": "Upload Images",
+      "convert": "Convert Now"
+    },
+    "features": {
+      "bulk": "Bulk Upload",
+      "fast": "Lightning Fast",
+      "secure": "100% Secure"
+    }
+  },
+  "upload": {
+    "title": "Upload Your Images",
+    "dragDrop": "Drag and drop images here",
+    "or": "or",
+    "browse": "Browse Files",
+    "supportedFormats": "Supported formats: JPG, JPEG, PNG, WEBP, HEIC",
+    "maxSize": "Max file size: 100MB",
+    "maxFiles": "Max files: 30",
+    "uploading": "Uploading files...",
+    "success": "Images uploaded successfully",
+    "error": "Upload failed. Please try again."
+  },
+  "processing": {
+    "title": "Processing Images",
+    "converting": "Converting to WebP...",
+    "filesProcessed": "files processed",
+    "remaining": "remaining",
+    "complete": "Processing Complete!",
+    "error": "Processing failed"
+  },
+  "result": {
+    "title": "Your Files Are Ready",
+    "download": "Download ZIP",
+    "downloadSingle": "Download File",
+    "originalSize": "Original Size",
+    "newSize": "New Size",
+    "saved": "Saved",
+    "newConversion": "New Conversion"
+  },
+  "cta": {
+    "title": "Support Developer",
+    "message": "Click For Continue",
+    "description": "Your support helps us keep this tool free for everyone. Please click the button below to continue processing your files.",
+    "button": "Continue Processing",
+    "redirecting": "Redirecting to sponsor...",
+    "returning": "Returning to Smart Convert...",
+    "thankYou": "Thank you for your support!",
+    "processingContinues": "Processing will continue shortly..."
+  },
+  "credit": {
+    "required": "credits required",
+    "available": "credits available",
+    "insufficient": "Insufficient credits. Please support the developer to continue.",
+    "batchInfo": "5 files = 1 credit"
+  },
+  "tool": {
+    "howToUse": "How to Use",
+    "step1": "Upload your images",
+    "step2": "Click Convert",
+    "step3": "Download your WebP files",
+    "faq": "Frequently Asked Questions",
+    "relatedTools": "Related Tools"
+  },
+  "sidebar": {
+    "allTools": "All Tools",
+    "imageConversion": "Image Conversion",
+    "imageCompression": "Image Compression",
+    "fileConversion": "File Conversion",
+    "fileCompression": "File Compression",
+    "heicTools": "HEIC Tools"
+  },
+  "tools": {
+    "imagetowebp": {
+      "name": "Image to WebP",
+      "description": "Convert images to WebP format with high quality compression"
+    },
+    "jpgtowebp": {
+      "name": "JPG to WebP",
+      "description": "Convert JPG images to WebP format"
+    },
+    "pngtowebp": {
+      "name": "PNG to WebP",
+      "description": "Convert PNG images to WebP format"
+    },
+    "heictowebp": {
+      "name": "HEIC to WebP",
+      "description": "Convert HEIC/HEIF images from iPhone to WebP format"
+    },
+    "compressimage": {
+      "name": "Compress Image",
+      "description": "Reduce image file size while maintaining quality"
+    }
+  },
+  "errors": {
+    "invalidFile": "Invalid file type. Please upload a valid image.",
+    "fileTooLarge": "File is too large. Maximum size is 100MB.",
+    "tooManyFiles": "Too many files. Maximum is 30 files per batch.",
+    "processingFailed": "Processing failed. Please try again.",
+    "rateLimitExceeded": "Rate limit exceeded. Please wait before trying again.",
+    "jobNotFound": "Job not found."
+  },
+  "footer": {
+    "copyright": "© 2024 Smart Convert. All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "contact": "Contact"
+  }
+}
