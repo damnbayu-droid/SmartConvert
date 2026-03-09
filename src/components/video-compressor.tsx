@@ -79,6 +79,7 @@ export function VideoCompressor() {
     const [isDragging, setIsDragging] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [ffmpegLoading, setFfmpegLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -179,10 +180,12 @@ export function VideoCompressor() {
 
             setResult(res);
             setStage('completed');
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Video processing error:', err);
+            const msg = err instanceof Error ? err.message : String(err);
+            setErrorMsg(msg);
             setStage('error');
-            toast.error('Processing failed. Please try again.');
+            toast.error(`Processing failed: ${msg}`);
         }
     }, [file, preset, trimStart, trimEnd, exportMp4, exportWebm]);
 
@@ -203,6 +206,7 @@ export function VideoCompressor() {
         setProgress(0);
         setProgressLabel('');
         setResult(null);
+        setErrorMsg('');
     }, [result]);
 
     /* ─── Estimated size ─── */
@@ -573,9 +577,14 @@ export function VideoCompressor() {
                     <CardContent className="py-8 text-center">
                         <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
                         <p className="text-destructive font-medium mb-1">Processing Failed</p>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <p className="text-sm text-muted-foreground mb-2">
                             The video could not be processed. This may happen with very large files or unsupported codecs.
                         </p>
+                        {errorMsg && (
+                            <p className="text-xs text-destructive/80 font-mono bg-destructive/5 rounded p-2 mb-4 break-all">
+                                {errorMsg}
+                            </p>
+                        )}
                         <Button variant="outline" onClick={reset} className="gap-2">
                             <RotateCcw className="h-4 w-4" />
                             Try Again

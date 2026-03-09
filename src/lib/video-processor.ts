@@ -7,8 +7,8 @@ let ffmpegInstance: FFmpeg | null = null;
 let loadingPromise: Promise<FFmpeg> | null = null;
 
 /**
- * Lazily load the multithreaded FFmpeg WASM core.
- * Reuses the same instance across calls.
+ * Lazily load FFmpeg WASM.
+ * Uses single-threaded core for maximum compatibility (no COOP/COEP headers needed).
  */
 export async function getFFmpeg(): Promise<FFmpeg> {
     if (ffmpegInstance) return ffmpegInstance;
@@ -17,12 +17,12 @@ export async function getFFmpeg(): Promise<FFmpeg> {
     loadingPromise = (async () => {
         const ff = new FFmpeg();
 
-        const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+        // Use single-threaded core — works on all browsers without special headers
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 
         await ff.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
         });
 
         ffmpegInstance = ff;
@@ -113,7 +113,7 @@ export async function processVideo(
             '-i', currentInput,
             '-c:v', 'libx264',
             '-crf', String(crf),
-            '-preset', 'slow',
+            '-preset', 'medium',
             '-c:a', 'aac',
             '-b:a', '128k',
             '-movflags', '+faststart',
@@ -191,7 +191,6 @@ export function estimateCompressedSize(
     durationSec: number,
     preset: CompressionPreset,
 ): number {
-    // Rough target bitrates per preset (kbps)
     const bitrateMap: Record<CompressionPreset, number> = {
         high: 2000,
         balanced: 1200,
@@ -199,6 +198,5 @@ export function estimateCompressedSize(
     };
     const targetBytesPerSec = (bitrateMap[preset] * 1000) / 8;
     const estimated = targetBytesPerSec * durationSec;
-    // Never exceed original
     return Math.min(estimated, originalBytes * 0.9);
 }
