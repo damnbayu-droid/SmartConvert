@@ -2,13 +2,14 @@ import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Locale, locales, localePaths } from '@/i18n/config';
 import { ImageConverter } from '@/components/image-converter';
+import { VideoCompressor } from '@/components/video-compressor';
 import { ToolFAQ } from '@/components/tool-faq';
 import { Footer } from '@/components/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Image as ImageIcon, FileArchive } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Image as ImageIcon, FileArchive, Video } from 'lucide-react';
 
 // Tool definitions
 const tools: Record<string, {
@@ -60,17 +61,24 @@ const tools: Record<string, {
     outputFormat: 'Same as input',
     category: 'image-compression',
   },
+  'compress-video': {
+    name: 'Compress Video Online',
+    description: 'Compress video online for free. Reduce MP4 file size while keeping high quality. Supports H264 and WebM optimization.',
+    inputFormats: ['MP4', 'MOV', 'MKV', 'WEBM', 'AVI'],
+    outputFormat: 'MP4 / WebM',
+    category: 'video-compression',
+  },
 };
 
 export async function generateStaticParams() {
   const params: { locale: string; slug: string }[] = [];
-  
+
   for (const locale of locales) {
     for (const [slug] of Object.entries(tools)) {
       params.push({ locale, slug });
     }
   }
-  
+
   return params;
 }
 
@@ -82,7 +90,7 @@ export async function generateMetadata({
   const { locale, slug } = await params;
   const t = await getTranslations({ locale });
   const tool = tools[slug];
-  
+
   if (!tool) {
     return {
       title: 'Tool Not Found',
@@ -110,7 +118,7 @@ export async function generateMetadata({
 // Generate JSON-LD structured data
 function generateStructuredData(tool: typeof tools[string], slug: string, locale: string) {
   const baseUrl = 'https://convert.biz.id';
-  
+
   // SoftwareApplication schema
   const softwareSchema = {
     '@context': 'https://schema.org',
@@ -200,9 +208,9 @@ export default async function ToolPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  
+
   const tool = tools[slug];
-  
+
   if (!tool) {
     notFound();
   }
@@ -267,7 +275,11 @@ export default async function ToolPage({
           {/* Converter */}
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              <ImageConverter toolSlug={slug} locale={locale} />
+              {tool.category === 'video-compression' ? (
+                <VideoCompressor />
+              ) : (
+                <ImageConverter toolSlug={slug} locale={locale} />
+              )}
             </div>
 
             {/* Sidebar */}

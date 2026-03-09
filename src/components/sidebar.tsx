@@ -17,6 +17,7 @@ import {
   PanelLeft,
   Menu,
   X,
+  Video,
 } from 'lucide-react';
 import { locales, localeNames, type Locale } from '@/i18n';
 import { useState, useEffect, useRef } from 'react';
@@ -153,6 +154,27 @@ export function Sidebar({ locale }: SidebarProps) {
               <span className={cn(collapsed ? 'lg:hidden' : '')}>{t(`tools.${tool.key}.name`)}</span>
             </Link>
           ))}
+
+          {/* Video Tools Section */}
+          <div className={cn("mt-4 mb-2 px-3", collapsed ? "lg:hidden" : "")}>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {t('sidebar.videoTools')}
+            </p>
+          </div>
+
+          <Link
+            href={`/${locale}/tool/compress-video`}
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+              pathname.includes('compress-video')
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-muted'
+            )}
+          >
+            <Video className="h-4 w-4 flex-shrink-0" />
+            <span className={cn(collapsed ? 'lg:hidden' : '')}>{t('tools.compressvideo.name')}</span>
+          </Link>
+
 
           {/* Image Tools Link */}
           <Link

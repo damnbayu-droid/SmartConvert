@@ -83,7 +83,8 @@
     "imageCompression": "Image Compression",
     "fileConversion": "File Conversion",
     "fileCompression": "File Compression",
-    "heicTools": "HEIC Tools"
+    "heicTools": "HEIC Tools",
+    "videoTools": "Video Tools"
   },
   "tools": {
     "imagetowebp": {
@@ -105,6 +106,10 @@
     "compressimage": {
       "name": "Compress Image",
       "description": "Reduce image file size while maintaining quality"
+    },
+    "compressvideo": {
+      "name": "Compress Video",
+      "description": "Compress video online. Reduce MP4 size with H264 and WebM optimization."
     }
   },
   "errors": {

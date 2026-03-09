@@ -83,7 +83,8 @@
     "imageCompression": "Kompresi Gambar",
     "fileConversion": "Konversi File",
     "fileCompression": "Kompresi File",
-    "heicTools": "Alat HEIC"
+    "heicTools": "Alat HEIC",
+    "videoTools": "Alat Video"
   },
   "tools": {
     "imagetowebp": {
@@ -105,6 +106,10 @@
     "compressimage": {
       "name": "Kompres Gambar",
       "description": "Kurangi ukuran file gambar dengan tetap mempertahankan kualitas"
+    },
+    "compressvideo": {
+      "name": "Kompres Video",
+      "description": "Kompres video online. Kurangi ukuran MP4 dengan optimasi H264 dan WebM."
     }
   },
   "errors": {
