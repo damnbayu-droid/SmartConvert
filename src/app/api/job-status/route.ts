@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -13,15 +15,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const job = await db.job.findUnique({
-      where: { id: jobId },
-      include: {
-        sessions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
+    const { data: job, error } = await db
+      .from('Job')
+      .select('*, sessions:JobSession(*)')
+      .eq('id', jobId)
+      .order('createdAt', { foreignTable: 'sessions', ascending: false })
+      .limit(1, { foreignTable: 'sessions' })
+      .single();
 
     if (!job) {
       return NextResponse.json(

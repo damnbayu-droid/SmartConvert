@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -13,9 +15,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const job = await db.job.findUnique({
-      where: { id: jobId },
-    });
+    const { data: job, error } = await db
+      .from('Job')
+      .select('*')
+      .eq('id', jobId)
+      .single();
 
     if (!job) {
       return NextResponse.json(

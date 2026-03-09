@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -13,15 +15,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const job = await db.job.findUnique({
-      where: { id: jobId },
-      include: {
-        sessions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
+    const { data: job, error } = await db
+      .from('Job')
+      .select('*, sessions:JobSession(*)')
+      .eq('id', jobId)
+      .order('createdAt', { foreignTable: 'sessions', ascending: false })
+      .limit(1, { foreignTable: 'sessions' })
+      .single();
 
     if (!job) {
       return NextResponse.json(
@@ -37,23 +37,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark session as completed (user confirmed CTA)
-    const latestSession = job.sessions[0];
+    const latestSession = job.sessions?.[0];
     if (latestSession) {
-      await db.jobSession.update({
-        where: { id: latestSession.id },
-        data: { status: 'completed' },
-      });
+      await db
+        .from('JobSession')
+        .update({ status: 'completed' })
+        .eq('id', latestSession.id);
     }
 
     // Update job to processing and increment credits
-    await db.job.update({
-      where: { id: jobId },
-      data: {
+    await db
+      .from('Job')
+      .update({
         status: 'processing',
         creditsUsed: job.creditsUsed + 1,
-      },
-    });
+      })
+      .eq('id', jobId);
 
     return NextResponse.json({
       success: true,

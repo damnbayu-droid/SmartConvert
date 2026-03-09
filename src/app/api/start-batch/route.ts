@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -13,9 +15,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const job = await db.job.findUnique({
-      where: { id: jobId },
-    });
+    const { data: job, error } = await db
+      .from('Job')
+      .select('*')
+      .eq('id', jobId)
+      .single();
 
     if (!job) {
       return NextResponse.json(
@@ -32,20 +36,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Update job status
-    await db.job.update({
-      where: { id: jobId },
-      data: { status: 'processing' },
-    });
+    await db
+      .from('Job')
+      .update({ status: 'processing' })
+      .eq('id', jobId);
 
     // Create job session for tracking
     const creditStep = Math.floor(job.processedFiles / 5);
-    await db.jobSession.create({
-      data: {
+    await db.from('JobSession').insert([
+      {
         jobId,
         creditStep,
         status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
-    });
+    ]);
 
     return NextResponse.json({
       success: true,

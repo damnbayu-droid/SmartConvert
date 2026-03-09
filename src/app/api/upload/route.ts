@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+
+export const runtime = 'edge';
 import { randomUUID } from 'crypto';
 
 // Rate limiting - simple in-memory (in production, use Redis)
@@ -51,9 +53,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check rate limit
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
+    const ip = request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
     const { allowed, remaining } = checkRateLimit(ip);
 
     if (!allowed) {
@@ -70,19 +72,26 @@ export async function POST(request: NextRequest) {
     const jobId = randomUUID();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await db.job.create({
-      data: {
+    const { error: dbError } = await db.from('Job').insert([
+      {
         id: jobId,
         toolSlug: toolSlug || 'image-to-webp',
         status: 'pending',
         totalFiles: files.length,
         processedFiles: 0,
         creditsUsed: 0,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
         inputFiles: JSON.stringify(files),
         clientIp: ip,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
-    });
+    ]);
+
+    if (dbError) {
+      console.error('Supabase insert error:', dbError);
+      throw new Error(dbError.message);
+    }
 
     // Increment rate limit
     incrementRateLimit(ip, files.length);
