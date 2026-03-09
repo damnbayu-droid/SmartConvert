@@ -1,24 +1,58 @@
 'use client';
 
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL, fetchFile } from '@ffmpeg/util';
+/**
+ * Video processor using FFmpeg loaded from CDN at runtime.
+ * This bypasses Cloudflare's bundler which cannot handle @ffmpeg/ffmpeg's
+ * internal dynamic imports ("Cannot find module as expression is too dynamic").
+ */
 
-let ffmpegInstance: FFmpeg | null = null;
-let loadingPromise: Promise<FFmpeg> | null = null;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+let ffmpegInstance: any = null;
+let loadingPromise: Promise<any> | null = null;
+
+/* ─── CDN Script Loader ─── */
+
+function loadScript(src: string, globalName: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        // Check if already loaded
+        if ((window as any)[globalName]) {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(script);
+    });
+}
 
 /**
- * Lazily load FFmpeg WASM.
- * Uses single-threaded core for maximum compatibility (no COOP/COEP headers needed).
+ * Load FFmpeg from CDN at runtime (no bundler involvement).
  */
-export async function getFFmpeg(): Promise<FFmpeg> {
+export async function getFFmpeg(): Promise<any> {
     if (ffmpegInstance) return ffmpegInstance;
     if (loadingPromise) return loadingPromise;
 
     loadingPromise = (async () => {
+        // Load UMD builds from CDN — these set window globals
+        await loadScript(
+            'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',
+            'FFmpegWASM'
+        );
+        await loadScript(
+            'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js',
+            'FFmpegUtil'
+        );
+
+        const { FFmpeg } = (window as any).FFmpegWASM;
+        const { toBlobURL } = (window as any).FFmpegUtil;
+
         const ff = new FFmpeg();
 
-        // Use single-threaded core — works on all browsers without special headers
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        // Load the single-threaded WASM core from CDN
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
         await ff.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -32,14 +66,14 @@ export async function getFFmpeg(): Promise<FFmpeg> {
     return loadingPromise;
 }
 
-/* ─── types ─── */
+/* ─── Types ─── */
 
 export type CompressionPreset = 'high' | 'balanced' | 'max';
 
 export interface VideoSettings {
     preset: CompressionPreset;
-    trimStart?: number; // seconds
-    trimEnd?: number;   // seconds
+    trimStart?: number;
+    trimEnd?: number;
     exportMp4: boolean;
     exportWebm: boolean;
 }
@@ -57,7 +91,7 @@ const CRF_MAP: Record<CompressionPreset, number> = {
     max: 28,
 };
 
-/* ─── pipeline ─── */
+/* ─── Processing Pipeline ─── */
 
 export async function processVideo(
     file: File,
@@ -65,8 +99,8 @@ export async function processVideo(
     onProgress: (pct: number, stage: string) => void,
 ): Promise<ProcessingResult> {
     const ff = await getFFmpeg();
+    const { fetchFile } = (window as any).FFmpegUtil;
 
-    // Determine input extension
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase() || '.mp4';
     const inputName = `input${ext}`;
 
@@ -78,7 +112,7 @@ export async function processVideo(
     const crf = CRF_MAP[settings.preset];
     let currentInput = inputName;
 
-    // ── Step 1: Trim (if requested) ──
+    // Step 1: Trim (if requested)
     if (settings.trimStart !== undefined || settings.trimEnd !== undefined) {
         onProgress(5, 'Trimming video…');
         const trimArgs = ['-i', currentInput];
@@ -87,7 +121,7 @@ export async function processVideo(
             trimArgs.push('-ss', String(settings.trimStart));
         }
         if (settings.trimEnd !== undefined) {
-            const duration = (settings.trimEnd) - (settings.trimStart ?? 0);
+            const duration = settings.trimEnd - (settings.trimStart ?? 0);
             if (duration > 0) {
                 trimArgs.push('-t', String(duration));
             }
@@ -100,12 +134,12 @@ export async function processVideo(
 
     const result: ProcessingResult = {};
 
-    // ── Step 2: Encode MP4 H.264 ──
+    // Step 2: Encode MP4 H.264
     if (settings.exportMp4) {
         onProgress(10, 'Compressing MP4 (H.264)…');
 
-        ff.on('progress', ({ progress }) => {
-            const pct = 10 + Math.round(progress * 40); // 10-50%
+        ff.on('progress', ({ progress }: { progress: number }) => {
+            const pct = 10 + Math.round(progress * 40);
             onProgress(Math.min(pct, 50), 'Compressing MP4 (H.264)…');
         });
 
@@ -128,12 +162,12 @@ export async function processVideo(
         result.mp4Url = URL.createObjectURL(new Blob([mp4Copy], { type: 'video/mp4' }));
     }
 
-    // ── Step 3: Encode WebM VP9 ──
+    // Step 3: Encode WebM VP9
     if (settings.exportWebm) {
         onProgress(55, 'Encoding WebM (VP9)…');
 
-        ff.on('progress', ({ progress }) => {
-            const pct = 55 + Math.round(progress * 40); // 55-95%
+        ff.on('progress', ({ progress }: { progress: number }) => {
+            const pct = 55 + Math.round(progress * 40);
             onProgress(Math.min(pct, 95), 'Encoding WebM (VP9)…');
         });
 
@@ -155,7 +189,7 @@ export async function processVideo(
         result.webmUrl = URL.createObjectURL(new Blob([webmCopy], { type: 'video/webm' }));
     }
 
-    // ── Cleanup virtual FS ──
+    // Cleanup virtual FS
     onProgress(98, 'Finalizing…');
     const filesToClean = [inputName, 'trimmed.mp4', 'output.mp4', 'output.webm'];
     for (const f of filesToClean) {
@@ -185,7 +219,6 @@ export function formatDuration(seconds: number): string {
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-/** Rough estimate of compressed size. */
 export function estimateCompressedSize(
     originalBytes: number,
     durationSec: number,
