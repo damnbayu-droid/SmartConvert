@@ -37,12 +37,12 @@ export async function GET(request: NextRequest) {
     const currentBatch = Math.floor(processedFiles / 5);
 
     // Check if we need to show CTA
-    const showCta = 
+    const showCta =
       job.status === 'waiting_cta' ||
-      (processedFiles > 0 && 
-       processedFiles % 5 === 0 && 
-       processedFiles < totalFiles &&
-       job.status === 'processing');
+      (processedFiles > 0 &&
+        processedFiles % 5 === 0 &&
+        processedFiles < totalFiles &&
+        job.status === 'processing');
 
     // Parse output files if completed
     let files = [];
