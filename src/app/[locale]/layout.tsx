@@ -23,6 +23,32 @@ export async function generateMetadata({
       template: `%s | Smart Convert`
     },
     description: messages.metadata.description,
+    manifest: '/manifest.webmanifest',
+    icons: {
+      icon: '/app-icon.webp',
+      apple: '/app-icon.webp',
+    },
+    openGraph: {
+      title: messages.metadata.title,
+      description: messages.metadata.description,
+      url: 'https://convert.biz.id',
+      siteName: 'Smart Convert',
+      images: [
+        {
+          url: '/og-image.webp',
+          width: 1200,
+          height: 630,
+          alt: 'Smart Convert',
+        },
+      ],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: messages.metadata.title,
+      description: messages.metadata.description,
+      images: ['/og-image.webp'],
+    },
     alternates: {
       canonical: `/${locale}`,
       languages: {
@@ -32,6 +58,13 @@ export async function generateMetadata({
     }
   };
 }
+
+export const viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
+};
 
 export default async function LocaleLayout({
   children,

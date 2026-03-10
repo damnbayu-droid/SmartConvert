@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -63,8 +64,8 @@ export function Sidebar({ locale }: SidebarProps) {
       <div className="flex h-14 items-center justify-between border-b px-4">
         {!collapsed && (
           <Link href={`/${locale}`} className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ImageIcon className="h-5 w-5" />
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md">
+              <Image src="/logo.webp" alt="Smart Convert" width={32} height={32} className="object-cover" />
             </div>
             <span className="font-semibold text-lg">Smart Convert</span>
           </Link>
