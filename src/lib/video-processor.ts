@@ -53,7 +53,7 @@ export async function getFFmpeg(): Promise<any> {
 
     loadingPromise = (async () => {
         // Load only the FFmpeg wrapper (UMD) — no @ffmpeg/util needed
-        await loadScript('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js');
+        await loadScript('/ffmpeg/ffmpeg.js');
 
         const FFmpegWASM = (window as any).FFmpegWASM;
         if (!FFmpegWASM || !FFmpegWASM.FFmpeg) {
@@ -62,8 +62,8 @@ export async function getFFmpeg(): Promise<any> {
 
         const ff = new FFmpegWASM.FFmpeg();
 
-        // Load single-threaded WASM core from CDN
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        // Load single-threaded WASM core from local public/ffmpeg
+        const baseURL = '/ffmpeg';
 
         await ff.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
