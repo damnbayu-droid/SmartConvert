@@ -3,6 +3,8 @@ import { getTranslations } from 'next-intl/server';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Shield, Zap, Image as ImageIcon, Video, FileArchive, ServerOff, Smartphone } from 'lucide-react';
 
+export const runtime = 'edge';
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const t = await getTranslations({ locale });
