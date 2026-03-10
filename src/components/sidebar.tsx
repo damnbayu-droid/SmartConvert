@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Video,
+  Info,
 } from 'lucide-react';
 import { locales, localeNames, type Locale } from '@/i18n';
 import { useState, useEffect, useRef } from 'react';
@@ -207,8 +208,22 @@ export function Sidebar({ locale }: SidebarProps) {
         </nav>
       </ScrollArea>
 
-      {/* Footer - Language Selector */}
+      {/* Footer - Info & Language Selector */}
       <div className="border-t p-2">
+        {/* Info CTA */}
+        <Link
+          href={`/${locale}/info`}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mb-2',
+            collapsed && 'justify-center px-0'
+          )}
+        >
+          <Info className="h-4 w-4" />
+          <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
+            <span className="ml-2">{t('nav.info', { defaultMessage: 'Information' })}</span>
+          </div>
+        </Link>
+
         {/* Simple language selector without Radix to avoid hydration issues */}
         <div className="relative">
           <button

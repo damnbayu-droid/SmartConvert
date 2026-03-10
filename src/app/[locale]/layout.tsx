@@ -25,7 +25,7 @@ export async function generateMetadata({
     description: messages.metadata.description,
     manifest: '/manifest.webmanifest',
     icons: {
-      icon: '/logo.webp',
+      icon: '/Favicon.webp',
       apple: '/app-icon.webp',
     },
     openGraph: {
