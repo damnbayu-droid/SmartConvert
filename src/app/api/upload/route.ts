@@ -88,8 +88,13 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (dbError) {
-      console.error('Supabase insert error:', dbError);
-      throw new Error(dbError.message);
+      console.error('Supabase insert error (Job):', {
+        code: dbError.code,
+        message: dbError.message,
+        details: dbError.details,
+        hint: dbError.hint
+      });
+      throw new Error(`Database error: ${dbError.message}`);
     }
 
     // Increment rate limit

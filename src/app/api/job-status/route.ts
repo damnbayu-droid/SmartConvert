@@ -23,6 +23,16 @@ export async function GET(request: NextRequest) {
       .limit(1, { foreignTable: 'sessions' })
       .single();
 
+    if (error) {
+      console.error('Supabase select error (JobStatus):', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      // We don't throw yet to let it return 404 if truly missing
+    }
+
     if (!job) {
       return NextResponse.json(
         { error: 'Job not found' },
