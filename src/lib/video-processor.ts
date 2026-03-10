@@ -62,8 +62,8 @@ export async function getFFmpeg(): Promise<any> {
 
         const ff = new FFmpegWASM.FFmpeg();
 
-        // Load single-threaded WASM core from local public/ffmpeg
-        const baseURL = '/ffmpeg';
+        // Load single-threaded WASM core from CDN to avoid CF 25MB limit
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
         await ff.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
