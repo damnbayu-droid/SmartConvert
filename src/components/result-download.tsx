@@ -13,6 +13,7 @@ interface ProcessedFile {
   originalSize: number;
   newSize: number;
   savedPercent: number;
+  url?: string;
 }
 
 interface ResultDownloadProps {
@@ -91,9 +92,18 @@ export function ResultDownload({
                     {formatSize(file.originalSize)} → {formatSize(file.newSize)}
                   </p>
                 </div>
-                <Badge variant="secondary" className="ml-2 bg-green-500/10 text-green-600 dark:text-green-400">
-                  -{file.savedPercent.toFixed(0)}%
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+                    -{file.savedPercent.toFixed(0)}%
+                  </Badge>
+                  {file.url && (
+                    <Button variant="ghost" size="icon" asChild className="h-8 w-8">
+                      <a href={file.url} download={file.originalName}>
+                        <Download className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
