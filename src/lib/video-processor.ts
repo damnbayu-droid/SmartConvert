@@ -160,8 +160,9 @@ export async function processVideo(
 
         const mp4Data = await ff.readFile('output.mp4');
         const mp4Bytes = mp4Data instanceof Uint8Array ? mp4Data : new Uint8Array(0);
+        const mp4Buf = mp4Bytes.buffer.slice(mp4Bytes.byteOffset, mp4Bytes.byteOffset + mp4Bytes.byteLength) as ArrayBuffer;
         result.mp4Size = mp4Bytes.byteLength;
-        result.mp4Url = URL.createObjectURL(new Blob([mp4Bytes], { type: 'video/mp4' }));
+        result.mp4Url = URL.createObjectURL(new Blob([mp4Buf], { type: 'video/mp4' }));
     }
 
     // Step 3: Encode WebM VP9
@@ -184,8 +185,9 @@ export async function processVideo(
 
         const webmData = await ff.readFile('output.webm');
         const webmBytes = webmData instanceof Uint8Array ? webmData : new Uint8Array(0);
+        const webmBuf = webmBytes.buffer.slice(webmBytes.byteOffset, webmBytes.byteOffset + webmBytes.byteLength) as ArrayBuffer;
         result.webmSize = webmBytes.byteLength;
-        result.webmUrl = URL.createObjectURL(new Blob([webmBytes], { type: 'video/webm' }));
+        result.webmUrl = URL.createObjectURL(new Blob([webmBuf], { type: 'video/webm' }));
     }
 
     // Cleanup
