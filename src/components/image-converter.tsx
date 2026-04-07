@@ -197,7 +197,17 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
         zip.file(file.originalName, file.blob);
       });
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, 'smart-convert-images.zip');
+      
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smart-convert-images.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Revoke the object URL after 10 seconds to allow the download to complete
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
       
       toast.success('Downloaded ZIP archive!');
     } catch (e) {
