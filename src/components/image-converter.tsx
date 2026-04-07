@@ -11,6 +11,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Zap, Shield, Upload, AlertTriangle, RotateCcw } from 'lucide-react';
+import { useUserStore, VIP_EMAILS } from '@/store/user-store';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 /* ─── Constants ─── */
 const BATCH_SIZE = 5;
@@ -52,6 +55,10 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
     effort: 4,
     nearLossless: true,
   });
+
+  const { email, imageUsesRemaining, decrementImageUses, incrementImageUses } = useUserStore();
+  const pendingFilesRef = useRef<File[]>([]);
+  const [requiredClicks, setRequiredClicks] = useState(1);
 
   /* ─── Core Conversion Logic (Browser-side) ─── */
   const convertImage = async (file: File, settings: ConversionSettings): Promise<ProcessedFile> => {
@@ -106,6 +113,21 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
   };
 
   const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
+    const isVip = email && VIP_EMAILS.includes(email);
+    const n = selectedFiles.length;
+    
+    if (!isVip) {
+      const currentQuota = useUserStore.getState().imageUsesRemaining;
+      if (currentQuota < n) {
+        setRequiredClicks(n - currentQuota);
+        pendingFilesRef.current = selectedFiles;
+        setState('cta');
+        return;
+      } else {
+        decrementImageUses(n);
+      }
+    }
+
     setState('processing');
     setTotalFiles(selectedFiles.length);
     setProcessedCount(0);
@@ -115,35 +137,35 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
     
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
-        // Handle CTA Batching (every BATCH_SIZE files)
-        if (i > 0 && i % BATCH_SIZE === 0) {
-            setProcessedFiles([...results]);
-            setState('cta');
-            // We'll resume in handleCTAComplete
-            // For now, let's just wait or show CTA
-            // Simplified: we'll just process all for now but show CTA if requested
-        }
-
         const res = await convertImage(selectedFiles[i], settings);
         results.push(res);
         setProcessedCount(i + 1);
-        // Slight delay for UX
         await new Promise(r => setTimeout(r, 100));
       }
       
       setProcessedFiles(results);
       setState('completed');
-      toast.success('Conversion complete!');
+      toast.success('Conversion complete! Files will auto-delete in 1 minute.');
     } catch (error) {
       console.error('Conversion error:', error);
       setState('error');
       toast.error('Some images failed to convert.');
     }
-  }, [settings]);
+  }, [email, decrementImageUses, settings]);
 
-  const handleCTAComplete = useCallback(() => {
-    setState('processing');
-  }, []);
+  const handleCTAComplete = useCallback((clicksFulfilled: boolean) => {
+    if (clicksFulfilled) {
+      incrementImageUses(requiredClicks);
+      setState('idle');
+      if (pendingFilesRef.current.length > 0) {
+        const filesToProcess = pendingFilesRef.current;
+        pendingFilesRef.current = [];
+        handleFilesSelected(filesToProcess);
+      }
+    } else {
+      setState('idle');
+    }
+  }, [incrementImageUses, requiredClicks, handleFilesSelected]);
 
   const handleNewConversion = useCallback(() => {
     processedFiles.forEach(f => URL.revokeObjectURL(f.url));
@@ -153,18 +175,34 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
     setState('idle');
   }, [processedFiles]);
 
-  const downloadAll = useCallback(() => {
-      // In browser-side version, we can't easily ZIP without a library like JSZip
-      // For now, we'll suggest individual downloads or implement JSZip later if needed.
-      // But we promise a "Download All" in the UI, so let's just trigger all downloads.
-      processedFiles.forEach((f, i) => {
-          setTimeout(() => {
-              const a = document.createElement('a');
-              a.href = f.url;
-              a.download = f.originalName;
-              a.click();
-          }, i * 200);
+  // 1-Minute Auto-Delete functionality
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (state === 'completed') {
+      timer = setTimeout(() => {
+        handleNewConversion();
+        toast.info('Session cleared automatically to save memory.');
+      }, 60000); // 60 seconds
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [state, handleNewConversion]);
+
+  const downloadAll = useCallback(async () => {
+    if (processedFiles.length === 0) return;
+    try {
+      const zip = new JSZip();
+      processedFiles.forEach((file) => {
+        zip.file(file.originalName, file.blob);
       });
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, 'smart-convert-images.zip');
+      
+      toast.success('Downloaded ZIP archive!');
+    } catch (e) {
+      toast.error('Failed to create ZIP archive.');
+    }
   }, [processedFiles]);
 
   return (
@@ -241,6 +279,7 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
         onClose={handleCTAComplete}
         jobId="local-job"
         sponsorUrl={SPONSOR_URL}
+        requiredClicks={requiredClicks}
       />
     </div>
   );

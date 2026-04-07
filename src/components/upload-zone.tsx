@@ -18,7 +18,7 @@ interface UploadZoneProps {
 
 export function UploadZone({
   onFilesSelected,
-  maxFiles = 30,
+  maxFiles = 50,
   maxSize = 100 * 1024 * 1024, // 100MB
   acceptedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
   isUploading = false,

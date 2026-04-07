@@ -43,6 +43,8 @@ import {
 } from '@/lib/video-processor';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useUserStore, VIP_EMAILS } from '@/store/user-store';
+import { CTAModal } from './cta-modal';
 
 /* ─── Constants ─── */
 const MAX_DESKTOP = 100 * 1024 * 1024;
@@ -51,7 +53,7 @@ const MAX_DURATION = 10 * 60;
 const ACCEPTED_VIDEO = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo'];
 const ACCEPTED_EXT = ['.mp4', '.mov', '.mkv', '.webm', '.avi'];
 
-type Stage = 'idle' | 'loaded' | 'processing' | 'completed' | 'error';
+type Stage = 'idle' | 'loaded' | 'processing' | 'completed' | 'error' | 'cta';
 
 interface VideoMeta {
     duration: number;
@@ -94,6 +96,8 @@ export function VideoCompressor() {
     const [isMobile, setIsMobile] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [elapsedTime, setElapsedTime] = useState(0);
+
+    const { email } = useUserStore();
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -164,10 +168,7 @@ export function VideoCompressor() {
     }, [handleFile]);
 
     /* ─── Process ─── */
-    const startProcessing = useCallback(async () => {
-        if (!file) return;
-        if (!exportMp4 && !exportWebm) { toast.error('Select at least one output format.'); return; }
-
+    const executeProcessing = useCallback(async () => {
         setStage('processing');
         setProgress(0);
         setProgressLabel('Initializing FFmpeg engine…');
@@ -182,7 +183,7 @@ export function VideoCompressor() {
                 trimEnd: trimEnd ? parseFloat(trimEnd) : undefined,
             };
 
-            const res = await processVideo(file, settings, (pct, label) => {
+            const res = await processVideo(file!, settings, (pct, label) => {
                 setProgress(pct);
                 setProgressLabel(label);
             });
@@ -199,7 +200,28 @@ export function VideoCompressor() {
         }
     }, [file, preset, trimStart, trimEnd, exportMp4, exportWebm]);
 
-    /* ─── Reset ─── */
+    const startProcessing = useCallback(async () => {
+        if (!file) return;
+        if (!exportMp4 && !exportWebm) { toast.error('Select at least one output format.'); return; }
+
+        const isVip = email && VIP_EMAILS.includes(email);
+
+        if (!isVip) {
+            setStage('cta');
+            return;
+        }
+
+        executeProcessing();
+    }, [file, exportMp4, exportWebm, email, executeProcessing]);
+
+    const handleCTAComplete = useCallback((clicksFulfilled: boolean) => {
+        if (clicksFulfilled) {
+            executeProcessing();
+        } else {
+            setStage('loaded');
+        }
+    }, [executeProcessing]);
+
     const reset = useCallback(() => {
         if (result?.mp4Url) URL.revokeObjectURL(result.mp4Url);
         if (result?.webmUrl) URL.revokeObjectURL(result.webmUrl);
@@ -207,6 +229,20 @@ export function VideoCompressor() {
         setTrimStart(''); setTrimEnd(''); setExportMp4(true); setExportWebm(false);
         setProgress(0); setProgressLabel(''); setResult(null); setErrorMsg(''); setElapsedTime(0);
     }, [result]);
+
+    // 1-Minute Auto-Delete functionality
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (stage === 'completed') {
+            timer = setTimeout(() => {
+                reset();
+                toast.info('Session cleared automatically to save memory.');
+            }, 60000); // 60 seconds
+        }
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [stage, reset]);
 
     const estimatedSize = meta
         ? estimateCompressedSize(meta.size, trimEnd ? parseFloat(trimEnd) - (parseFloat(trimStart) || 0) : meta.duration, preset)
@@ -550,6 +586,13 @@ export function VideoCompressor() {
                     </CardContent>
                 </Card>
             )}
+
+            <CTAModal
+                isOpen={stage === 'cta'}
+                onClose={handleCTAComplete}
+                jobId="local-video-job"
+                requiredClicks={2}
+            />
         </div>
     );
 }

@@ -8,6 +8,8 @@ export const generateStaticParams = async () => {
   return locales.map((locale) => ({ locale }));
 };
 
+export const dynamic = 'force-static';
+
 export async function generateMetadata({
   params,
 }: {
@@ -18,6 +20,7 @@ export async function generateMetadata({
   const messages = (await import(`../../../messages/${locale}.json`)).default;
 
   return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://convert.biz.id'),
     title: {
       default: messages.metadata.title,
       template: `%s | Smart Convert`
@@ -50,7 +53,7 @@ export async function generateMetadata({
       images: ['/og-image.webp'],
     },
     alternates: {
-      canonical: `/${locale}`,
+      canonical: process.env.NEXT_PUBLIC_APP_URL || 'https://convert.biz.id',
       languages: {
         'en': '/en',
         'id': '/id'

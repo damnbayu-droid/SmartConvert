@@ -20,10 +20,13 @@ import {
   X,
   Video,
   Info,
+  LockOpen,
 } from 'lucide-react';
 import { locales, localeNames, type Locale } from '@/i18n';
 import { useState, useEffect, useRef } from 'react';
 import { useSidebarStore } from '@/store/sidebar-store';
+import { useUserStore } from '@/store/user-store';
+import { EmailLockModal } from './email-lock-modal';
 
 const imageTools = [
   { slug: 'image-to-webp', icon: ImageIcon, key: 'imagetowebp' },
@@ -43,6 +46,12 @@ export function Sidebar({ locale }: SidebarProps) {
   const { collapsed, toggleCollapsed } = useSidebarStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const { email, checkAndResetDailyQuota } = useUserStore();
+
+  useEffect(() => {
+    checkAndResetDailyQuota();
+  }, [checkAndResetDailyQuota]);
 
   // Track previous pathname to close mobile menu on navigation
   const prevPathnameRef = useRef(pathname);
@@ -210,6 +219,21 @@ export function Sidebar({ locale }: SidebarProps) {
 
       {/* Footer - Info & Language Selector */}
       <div className="border-t p-2">
+        {!email && (
+          <button
+            onClick={() => setLockModalOpen(true)}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-green-600 bg-green-500/10 hover:bg-green-500/20 font-medium transition-colors mb-2',
+              collapsed && 'justify-center px-0'
+            )}
+          >
+            <LockOpen className="h-4 w-4" />
+            <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
+              <span className="ml-2">Unlock Full Access</span>
+            </div>
+          </button>
+        )}
+
         {/* Info CTA */}
         <Link
           href={`/${locale}/info`}
@@ -306,6 +330,8 @@ export function Sidebar({ locale }: SidebarProps) {
           {sidebarContent}
         </div>
       </aside>
+
+      <EmailLockModal isOpen={lockModalOpen} onClose={() => setLockModalOpen(false)} />
     </>
   );
 }
