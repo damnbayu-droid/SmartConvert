@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Look for the profile and active subscription in the database
-    const profile = await prisma.profile.findUnique({
+    const profile = await (prisma as any).profile.findUnique({
       where: { email: email.toLowerCase() },
       include: {
         subscriptions: {

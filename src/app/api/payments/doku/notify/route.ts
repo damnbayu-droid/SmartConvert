@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Update Database (Atomic Transaction)
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await (prisma as any).$transaction(async (tx: any) => {
       // Upsert Profile
       const profile = await tx.profile.upsert({
         where: { email: email.toLowerCase() },
