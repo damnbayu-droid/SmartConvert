@@ -44,7 +44,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useUserStore, VIP_EMAILS } from '@/store/user-store';
-import { CTAModal } from './cta-modal';
+import { AdsBlockModal } from './ads-block-modal';
 
 /* ─── Constants ─── */
 const MAX_DESKTOP = 100 * 1024 * 1024;
@@ -53,7 +53,7 @@ const MAX_DURATION = 10 * 60;
 const ACCEPTED_VIDEO = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo'];
 const ACCEPTED_EXT = ['.mp4', '.mov', '.mkv', '.webm', '.avi'];
 
-type Stage = 'idle' | 'loaded' | 'processing' | 'completed' | 'error' | 'cta';
+type Stage = 'idle' | 'loaded' | 'processing' | 'completed' | 'error';
 
 interface VideoMeta {
     duration: number;
@@ -97,7 +97,36 @@ export function VideoCompressor() {
     const [errorMsg, setErrorMsg] = useState('');
     const [elapsedTime, setElapsedTime] = useState(0);
 
-    const { email } = useUserStore();
+    const { email, canUseVideo, isVip } = useUserStore();
+    const [showAds, setShowAds] = useState(false);
+
+    if (!canUseVideo()) {
+        return (
+            <Card className="border-orange-200 bg-orange-50/30">
+                <CardContent className="py-20 flex flex-col items-center text-center">
+                    <div className="p-4 bg-orange-100 rounded-full mb-6">
+                        <FileVideo className="h-12 w-12 text-orange-600" />
+                    </div>
+                    <CardTitle className="text-2xl mb-2">Video Tools are Locked</CardTitle>
+                    <p className="text-muted-foreground max-w-md mb-8">
+                        The Video Compressor is an advanced tool reserved for <strong>Lifetime Pro</strong> members. 
+                        Upgrade your plan to unlock high-speed browser-side video processing.
+                    </p>
+                    <div className="flex gap-4">
+                        <Button 
+                            onClick={() => window.open('https://pay.doku.com/p-link/p/WlZhSnHm9G', '_blank')}
+                            className="bg-orange-600 hover:bg-orange-700"
+                        >
+                            Upgrade to Lifetime ($20)
+                        </Button>
+                        <Button variant="outline" onClick={() => window.location.href = '/'}>
+                            Use Image Tools (Free)
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -200,27 +229,26 @@ export function VideoCompressor() {
         }
     }, [file, preset, trimStart, trimEnd, exportMp4, exportWebm]);
 
-    const startProcessing = useCallback(async () => {
-        if (!file) return;
-        if (!exportMp4 && !exportWebm) { toast.error('Select at least one output format.'); return; }
-
-        const isVip = email && VIP_EMAILS.includes(email);
-
-        if (!isVip) {
-            setStage('cta');
-            return;
-        }
-
-        executeProcessing();
-    }, [file, exportMp4, exportWebm, email, executeProcessing]);
-
-    const handleCTAComplete = useCallback((clicksFulfilled: boolean) => {
-        if (clicksFulfilled) {
+    const handleAdsComplete = (unlocked: boolean) => {
+        setShowAds(false);
+        if (unlocked) {
             executeProcessing();
         } else {
             setStage('loaded');
         }
-    }, [executeProcessing]);
+    };
+
+    const startProcessing = useCallback(async () => {
+        if (!file) return;
+        if (!exportMp4 && !exportWebm) { toast.error('Select at least one output format.'); return; }
+
+        if (!isVip()) {
+            setShowAds(true);
+            return;
+        }
+
+        executeProcessing();
+    }, [file, exportMp4, exportWebm, isVip, executeProcessing]);
 
     const reset = useCallback(() => {
         if (result?.mp4Url) URL.revokeObjectURL(result.mp4Url);
@@ -587,11 +615,10 @@ export function VideoCompressor() {
                 </Card>
             )}
 
-            <CTAModal
-                isOpen={stage === 'cta'}
-                onClose={handleCTAComplete}
-                jobId="local-video-job"
-                requiredClicks={2}
+            <AdsBlockModal
+                isOpen={showAds}
+                onClose={handleAdsComplete}
+                reason="limit"
             />
         </div>
     );

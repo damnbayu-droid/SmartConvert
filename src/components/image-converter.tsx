@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { UploadZone } from './upload-zone';
 import { ProgressBar } from './progress-bar';
-import { CTAModal } from './cta-modal';
+import { AdsBlockModal } from './ads-block-modal';
 import { ResultDownload } from './result-download';
 import { ToolSettings, type ConversionSettings } from './tool-settings';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,8 +12,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Zap, Shield, Upload, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useUserStore, VIP_EMAILS } from '@/store/user-store';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
+
 
 /* ─── Constants ─── */
 const BATCH_SIZE = 5;
@@ -56,9 +55,9 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
     nearLossless: true,
   });
 
-  const { email, imageUsesRemaining, decrementImageUses, incrementImageUses } = useUserStore();
-  const pendingFilesRef = useRef<File[]>([]);
-  const [requiredClicks, setRequiredClicks] = useState(1);
+  const { email, conversionCount, incrementConversion, isVip } = useUserStore();
+  const [showAds, setShowAds] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   /* ─── Core Conversion Logic (Browser-side) ─── */
   const convertImage = async (file: File, settings: ConversionSettings): Promise<ProcessedFile> => {
@@ -112,60 +111,53 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
     });
   };
 
-  const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
-    const isVip = email && VIP_EMAILS.includes(email);
-    const n = selectedFiles.length;
-    
-    if (!isVip) {
-      const currentQuota = useUserStore.getState().imageUsesRemaining;
-      if (currentQuota < n) {
-        setRequiredClicks(n - currentQuota);
-        pendingFilesRef.current = selectedFiles;
-        setState('cta');
-        return;
-      } else {
-        decrementImageUses(n);
-      }
+  const handleFilesSelected = useCallback(async (files: File[]) => {
+    // Check Ads Trigger
+    if (!isVip() && (conversionCount + files.length > 4)) {
+      setPendingFiles(files);
+      setShowAds(true);
+      return;
     }
 
+    setTotalFiles(files.length);
     setState('processing');
-    setTotalFiles(selectedFiles.length);
-    setProcessedCount(0);
     setProcessedFiles([]);
-    
+    setProcessedCount(0);
+
+    const filesToProcess = [...files];
     const results: ProcessedFile[] = [];
     
     try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const res = await convertImage(selectedFiles[i], settings);
-        results.push(res);
-        setProcessedCount(i + 1);
-        await new Promise(r => setTimeout(r, 100));
+      // Process in batches of BATCH_SIZE to avoid freezing the UI
+      for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+        const batch = filesToProcess.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(file => convertImage(file, settings))
+        );
+        
+        results.push(...batchResults);
+        setProcessedFiles(prev => [...prev, ...batchResults]);
+        setProcessedCount(prev => prev + batchResults.length);
+        
+        // Increment global count
+        for (let j = 0; j < batchResults.length; j++) incrementConversion();
       }
-      
-      setProcessedFiles(results);
       setState('completed');
-      toast.success('Conversion complete! Files will auto-delete in 1 minute.');
     } catch (error) {
       console.error('Conversion error:', error);
       setState('error');
       toast.error('Some images failed to convert.');
     }
-  }, [email, decrementImageUses, settings]);
+  }, [email, incrementConversion, isVip, conversionCount, settings]);
 
-  const handleCTAComplete = useCallback((clicksFulfilled: boolean) => {
-    if (clicksFulfilled) {
-      incrementImageUses(requiredClicks);
-      setState('idle');
-      if (pendingFilesRef.current.length > 0) {
-        const filesToProcess = pendingFilesRef.current;
-        pendingFilesRef.current = [];
-        handleFilesSelected(filesToProcess);
-      }
-    } else {
-      setState('idle');
+  const handleAdsComplete = (unlocked: boolean) => {
+    setShowAds(false);
+    if (unlocked && pendingFiles.length > 0) {
+      const filesToProcess = [...pendingFiles];
+      setPendingFiles([]);
+      handleFilesSelected(filesToProcess);
     }
-  }, [incrementImageUses, requiredClicks, handleFilesSelected]);
+  };
 
   const handleNewConversion = useCallback(() => {
     processedFiles.forEach(f => URL.revokeObjectURL(f.url));
@@ -192,22 +184,17 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
   const downloadAll = useCallback(async () => {
     if (processedFiles.length === 0) return;
     try {
+      const [JSZip, { saveAs }] = await Promise.all([
+        import('jszip').then(mod => mod.default),
+        import('file-saver')
+      ]);
+
       const zip = new JSZip();
       processedFiles.forEach((file) => {
         zip.file(file.originalName, file.blob);
       });
       const content = await zip.generateAsync({ type: 'blob' });
-      
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'smart-convert-images.zip';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      // Revoke the object URL after 10 seconds to allow the download to complete
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      saveAs(content, 'smart-convert-images.zip');
       
       toast.success('Downloaded ZIP archive!');
     } catch (e) {
@@ -284,12 +271,10 @@ export function ImageConverter({ toolSlug, locale }: { toolSlug: string; locale:
         </Card>
       )}
 
-      <CTAModal
-        isOpen={state === 'cta'}
-        onClose={handleCTAComplete}
-        jobId="local-job"
-        sponsorUrl={SPONSOR_URL}
-        requiredClicks={requiredClicks}
+      <AdsBlockModal
+        isOpen={showAds}
+        onClose={handleAdsComplete}
+        reason="limit"
       />
     </div>
   );

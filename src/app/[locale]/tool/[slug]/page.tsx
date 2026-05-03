@@ -1,8 +1,7 @@
 import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Locale, locales, localePaths } from '@/i18n/config';
-import { ImageConverter } from '@/components/image-converter';
-import { VideoCompressor } from '@/components/video-compressor';
+import { ToolWrapper } from '@/components/tool-wrapper';
 import { ToolFAQ } from '@/components/tool-faq';
 import { Footer } from '@/components/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -117,88 +116,86 @@ export async function generateMetadata({
 
 // Generate JSON-LD structured data
 function generateStructuredData(tool: typeof tools[string], slug: string, locale: string) {
-  const baseUrl = 'https://convert.biz.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://convert.biz.id';
 
-  // SoftwareApplication schema
+  // Corporate Hierarchy Schema
+  const corporateSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': 'https://bali.enterprises',
+    name: 'Bali Enterprises',
+    url: 'https://bali.enterprises',
+    subOrganization: {
+      '@type': 'Organization',
+      '@id': 'https://indonesianvisas.com',
+      name: 'PT Indonesian Visas Agency',
+      url: 'https://indonesianvisas.com',
+      parentOrganization: { '@id': 'https://bali.enterprises' },
+      contactPoint: [
+        {
+          '@type': 'ContactPoint',
+          email: 'smart@notes.biz.id',
+          contactType: 'customer service'
+        },
+        {
+          '@type': 'ContactPoint',
+          email: 'info@bali.enterprises',
+          contactType: 'corporate communication'
+        }
+      ]
+    }
+  };
+
+  // SoftwareApplication schema (The Product)
   const softwareSchema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: tool.name,
+    name: `Smart Convert - ${tool.name}`,
     description: tool.description,
     applicationCategory: 'UtilitiesApplication',
     operatingSystem: 'Web Browser',
+    author: {
+      '@type': 'Organization',
+      name: 'PT Indonesian Visas Agency',
+      parentOrganization: {
+        '@type': 'Organization',
+        name: 'Bali Enterprises'
+      }
+    },
     offers: {
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD',
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '1250',
-    },
+    }
   };
 
-  // HowTo schema
-  const howToSchema = {
+  // Breadcrumb Schema for Maximum SEO
+  const breadcrumbSchema = {
     '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: `How to use ${tool.name}`,
-    step: [
+    '@type': 'BreadcrumbList',
+    itemListElement: [
       {
-        '@type': 'HowToStep',
+        '@type': 'ListItem',
         position: 1,
-        name: 'Upload images',
-        text: 'Upload your images (JPG, PNG, or WebP format)',
+        name: 'Home',
+        item: `${baseUrl}/${locale}`
       },
       {
-        '@type': 'HowToStep',
+        '@type': 'ListItem',
         position: 2,
-        name: 'Adjust settings',
-        text: 'Adjust quality settings if needed',
+        name: tool.category,
+        item: `${baseUrl}/${locale}/${tool.category.includes('image') ? 'image-tools' : 'file-tools'}`
       },
       {
-        '@type': 'HowToStep',
+        '@type': 'ListItem',
         position: 3,
-        name: 'Download',
-        text: 'Download your converted files',
-      },
-    ],
+        name: tool.name,
+        item: `${baseUrl}/${locale}/tool/${slug}`
+      }
+    ]
   };
 
-  // FAQPage schema
-  const faqSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: [
-      {
-        '@type': 'Question',
-        name: 'What is WebP format?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'WebP is a modern image format developed by Google that provides superior compression for images on the web. WebP images are 25-34% smaller than comparable JPEG images at equivalent quality.',
-        },
-      },
-      {
-        '@type': 'Question',
-        name: 'How much can I reduce image size?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Our tool typically reduces image file size by 60-90% while maintaining high visual quality.',
-        },
-      },
-      {
-        '@type': 'Question',
-        name: 'Is there a file size limit?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Yes, the maximum file size is 100MB per image. You can upload up to 30 images at once.',
-        },
-      },
-    ],
-  };
-
-  return [softwareSchema, howToSchema, faqSchema];
+  return [corporateSchema, softwareSchema, breadcrumbSchema];
 }
 
 export default async function ToolPage({
@@ -274,12 +271,12 @@ export default async function ToolPage({
 
           {/* Converter */}
           <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              {tool.category === 'video-compression' ? (
-                <VideoCompressor />
-              ) : (
-                <ImageConverter toolSlug={slug} locale={locale} />
-              )}
+            <div className="lg:col-span-2 min-h-[400px]">
+              <ToolWrapper 
+                category={tool.category} 
+                slug={slug} 
+                locale={locale} 
+              />
             </div>
 
             {/* Sidebar */}

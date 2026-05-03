@@ -5,34 +5,54 @@ export const VIP_EMAILS = process.env.NEXT_PUBLIC_VIP_EMAILS
   ? process.env.NEXT_PUBLIC_VIP_EMAILS.split(',').map(e => e.trim()) 
   : [];
 
+export type PlanType = 'free' | 'weekly' | 'monthly' | 'lifetime';
+
 interface UserState {
   email: string | null;
-  imageUsesRemaining: number;
-  lastResetDate: string;
+  planType: PlanType;
+  conversionCount: number;
+  lastAdsShownTime: number;
   setEmail: (email: string | null) => void;
-  decrementImageUses: (amount?: number) => void;
-  incrementImageUses: (amount: number) => void;
-  checkAndResetDailyQuota: () => void;
+  setPlan: (plan: PlanType) => void;
+  incrementConversion: () => void;
+  resetAdsTimer: () => void;
+  logout: () => void;
+  isVip: () => boolean;
+  canUseVideo: () => boolean;
 }
 
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       email: null,
-      imageUsesRemaining: 2,
-      lastResetDate: new Date().toISOString().split('T')[0],
+      planType: 'free',
+      conversionCount: 0,
+      lastAdsShownTime: Date.now(),
+      
       setEmail: (email) => set({ email }),
-      decrementImageUses: (amount = 1) => set((state) => ({ 
-        imageUsesRemaining: Math.max(0, state.imageUsesRemaining - amount) 
+      setPlan: (plan) => set({ planType: plan }),
+      
+      incrementConversion: () => set((state) => ({ 
+        conversionCount: state.conversionCount + 1 
       })),
-      incrementImageUses: (amount) => set((state) => ({
-        imageUsesRemaining: state.imageUsesRemaining + amount
-      })),
-      checkAndResetDailyQuota: () => {
-        const today = new Date().toISOString().split('T')[0];
-        if (get().lastResetDate !== today) {
-          set({ lastResetDate: today, imageUsesRemaining: 2 });
-        }
+      
+      resetAdsTimer: () => set({ 
+        lastAdsShownTime: Date.now(),
+        conversionCount: 0 
+      }),
+      
+      logout: () => set({ email: null, planType: 'free' }),
+      
+      isVip: () => {
+        const state = get();
+        if (state.email === 'damnbayu@gmail.com') return true;
+        return !!state.email && state.planType !== 'free';
+      },
+      
+      canUseVideo: () => {
+        const state = get();
+        if (state.email === 'damnbayu@gmail.com') return true;
+        return state.planType === 'lifetime';
       }
     }),
     {

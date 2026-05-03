@@ -21,12 +21,14 @@ import {
   Video,
   Info,
   LockOpen,
+  Crown,
 } from 'lucide-react';
 import { locales, localeNames, type Locale } from '@/i18n';
 import { useState, useEffect, useRef } from 'react';
 import { useSidebarStore } from '@/store/sidebar-store';
 import { useUserStore } from '@/store/user-store';
-import { EmailLockModal } from './email-lock-modal';
+import { SubscriptionModal } from './subscription-modal';
+import { LoginModal } from './login-modal';
 
 const imageTools = [
   { slug: 'image-to-webp', icon: ImageIcon, key: 'imagetowebp' },
@@ -46,12 +48,9 @@ export function Sidebar({ locale }: SidebarProps) {
   const { collapsed, toggleCollapsed } = useSidebarStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [lockModalOpen, setLockModalOpen] = useState(false);
-  const { email, checkAndResetDailyQuota } = useUserStore();
-
-  useEffect(() => {
-    checkAndResetDailyQuota();
-  }, [checkAndResetDailyQuota]);
+  const [subModalOpen, setSubModalOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const { email, logout, isVip } = useUserStore();
 
   // Track previous pathname to close mobile menu on navigation
   const prevPathnameRef = useRef(pathname);
@@ -201,7 +200,6 @@ export function Sidebar({ locale }: SidebarProps) {
             <span className={cn(collapsed ? 'lg:hidden' : '')}>{t('nav.imageTools')}</span>
           </Link>
 
-          {/* File Tools Link */}
           <Link
             href={`/${locale}/file-tools`}
             className={cn(
@@ -214,6 +212,28 @@ export function Sidebar({ locale }: SidebarProps) {
             <FileArchive className="h-4 w-4 flex-shrink-0" />
             <span className={cn(collapsed ? 'lg:hidden' : '')}>{t('nav.fileTools')}</span>
           </Link>
+
+          {email && (
+            <div className={cn(
+              "mt-4 p-3 rounded-xl bg-gradient-to-br from-orange-500/10 to-indigo-500/10 border border-orange-500/20",
+              collapsed && "p-1 flex justify-center"
+            )}>
+              <div className={cn("flex items-center gap-2", collapsed && "flex-col")}>
+                <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xs">
+                  {email[0].toUpperCase()}
+                </div>
+                {!collapsed && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-orange-600 uppercase tracking-tighter flex items-center gap-1">
+                      <Crown className="h-3 w-3" /> 
+                      {email === 'damnbayu@gmail.com' ? 'Admin' : (isVip() ? 'Pro Member' : 'Guest Member')}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">{email}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </nav>
       </ScrollArea>
 
@@ -221,15 +241,15 @@ export function Sidebar({ locale }: SidebarProps) {
       <div className="border-t p-2">
         {!email && (
           <button
-            onClick={() => setLockModalOpen(true)}
+            onClick={() => setSubModalOpen(true)}
             className={cn(
-              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-green-600 bg-green-500/10 hover:bg-green-500/20 font-medium transition-colors mb-2',
+              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-orange-600 bg-orange-500/10 hover:bg-orange-500/20 font-bold transition-all shadow-sm border border-orange-500/20 mb-2',
               collapsed && 'justify-center px-0'
             )}
           >
-            <LockOpen className="h-4 w-4" />
+            <Crown className="h-4 w-4" />
             <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
-              <span className="ml-2">Unlock Full Access</span>
+              <span className="ml-2 tracking-wide uppercase text-[11px]">Unlock Full Access</span>
             </div>
           </button>
         )}
@@ -248,40 +268,70 @@ export function Sidebar({ locale }: SidebarProps) {
           </div>
         </Link>
 
-        {/* Simple language selector without Radix to avoid hydration issues */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setLangOpen(!langOpen)}
-            className={cn(
-              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors',
-              collapsed && 'justify-center px-0'
-            )}
-          >
-            <Globe className="h-4 w-4" />
-            <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
-              <span className="ml-2">{localeNames[locale as Locale]}</span>
-              <ChevronDown className={cn('h-4 w-4 ml-auto transition-transform', langOpen && 'rotate-180')} />
-            </div>
-          </button>
-
-          {langOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-md border bg-popover p-1 shadow-lg">
-              {locales.map((loc) => (
-                <Link
-                  key={loc}
-                  href={pathname.replace(`/${locale}`, `/${loc}`)}
-                  onClick={() => setLangOpen(false)}
-                  className={cn(
-                    'flex w-full items-center rounded-sm px-3 py-2 text-sm hover:bg-muted transition-colors',
-                    loc === locale && 'bg-muted'
-                  )}
-                >
-                  {localeNames[loc]}
-                </Link>
-              ))}
-            </div>
+        {/* Account Controls */}
+        <div className="mt-2 space-y-1">
+          {!email ? (
+            <button
+              onClick={() => setLoginModalOpen(true)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors',
+                collapsed && 'justify-center px-0'
+              )}
+            >
+              <LockOpen className="h-4 w-4" />
+              <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
+                <span className="ml-2 font-medium uppercase text-[10px]">Sign In</span>
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={() => logout()}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors',
+                collapsed && 'justify-center px-0'
+              )}
+            >
+              <X className="h-4 w-4" />
+              <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
+                <span className="ml-2 font-medium uppercase text-[10px]">Sign Out</span>
+              </div>
+            </button>
           )}
+
+          {/* Simple language selector */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setLangOpen(!langOpen)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors',
+                collapsed && 'justify-center px-0'
+              )}
+            >
+              <Globe className="h-4 w-4" />
+              <div className={cn("flex w-full items-center", collapsed ? "lg:hidden" : "")}>
+                <span className="ml-2">{localeNames[locale as Locale]}</span>
+                <ChevronDown className={cn('h-4 w-4 ml-auto transition-transform', langOpen && 'rotate-180')} />
+              </div>
+            </button>
+            {langOpen && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 rounded-md border bg-popover p-1 shadow-lg">
+                {locales.map((loc) => (
+                  <Link
+                    key={loc}
+                    href={pathname.replace(`/${locale}`, `/${loc}`)}
+                    onClick={() => setLangOpen(false)}
+                    className={cn(
+                      'flex w-full items-center rounded-sm px-3 py-2 text-sm hover:bg-muted transition-colors',
+                      loc === locale && 'bg-muted'
+                    )}
+                  >
+                    {localeNames[loc]}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -331,7 +381,8 @@ export function Sidebar({ locale }: SidebarProps) {
         </div>
       </aside>
 
-      <EmailLockModal isOpen={lockModalOpen} onClose={() => setLockModalOpen(false)} />
+      <SubscriptionModal isOpen={subModalOpen} onClose={() => setSubModalOpen(false)} />
+      <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} />
     </>
   );
 }

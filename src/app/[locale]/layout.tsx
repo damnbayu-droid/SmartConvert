@@ -3,6 +3,8 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
 import { Sidebar } from '@/components/sidebar';
 import { MainWrapper } from '@/components/main-wrapper';
+import { AdsProvider } from '@/components/ads-provider';
+import { Toaster } from '@/components/ui/sonner';
 
 export const generateStaticParams = async () => {
   return locales.map((locale) => ({ locale }));
@@ -16,6 +18,10 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  
+  if (!locales.includes(locale as any)) {
+    return {};
+  }
 
   const messages = (await import(`../../../messages/${locale}.json`)).default;
 
@@ -35,13 +41,13 @@ export async function generateMetadata({
       title: messages.metadata.title,
       description: messages.metadata.description,
       url: 'https://convert.biz.id',
-      siteName: 'Smart Convert',
+      siteName: 'PT Indonesian Visas Agency',
       images: [
         {
           url: '/og-image.webp',
           width: 1200,
           height: 630,
-          alt: 'Smart Convert',
+          alt: 'PT Indonesian Visas Agency',
         },
       ],
       type: 'website',
@@ -83,13 +89,16 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <div className="flex min-h-screen">
-        <Sidebar locale={locale} />
-        {/* Main content with dynamic margin for sidebar handled by MainWrapper */}
-        <MainWrapper>
-          {children}
-        </MainWrapper>
-      </div>
+      <AdsProvider>
+        <div className="flex min-h-screen">
+          <Sidebar locale={locale} />
+          {/* Main content with dynamic margin for sidebar handled by MainWrapper */}
+          <MainWrapper>
+            {children}
+          </MainWrapper>
+        </div>
+        <Toaster position="top-center" richColors />
+      </AdsProvider>
     </NextIntlClientProvider>
   );
 }
