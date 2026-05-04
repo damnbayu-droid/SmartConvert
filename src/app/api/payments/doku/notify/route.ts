@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
+export const runtime = 'edge';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
 
 // DOKU Configuration from .env
 const DOKU_SECRET_KEY = process.env.DOKU_SECRET_KEY || '';

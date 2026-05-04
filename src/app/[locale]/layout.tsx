@@ -10,7 +10,7 @@ export const generateStaticParams = async () => {
   return locales.map((locale) => ({ locale }));
 };
 
-export const dynamic = 'force-static';
+export const dynamic = 'auto';
 
 export async function generateMetadata({
   params,

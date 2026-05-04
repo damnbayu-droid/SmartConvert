@@ -10,6 +10,8 @@ import {
   Clock
 } from 'lucide-react';
 
+export const runtime = 'edge';
+
 export default function DashboardPage() {
   const stats = [
     { label: 'Total Users', value: '1,248', icon: Users, change: '+12% from last month', color: 'text-blue-600' },

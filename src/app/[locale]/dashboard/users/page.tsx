@@ -1,5 +1,6 @@
 'use client';
 
+export const runtime = 'edge';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Mail
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function UserManagementPage() {

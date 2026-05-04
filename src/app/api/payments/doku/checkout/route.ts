@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+export const runtime = 'edge';
 import { v4 as uuidv4 } from 'uuid';
 
 // DOKU Configuration
@@ -8,18 +8,41 @@ const DOKU_SECRET_KEY = process.env.DOKU_SECRET_KEY || '';
 const DOKU_API_URL = process.env.DOKU_API_URL || 'https://api-sandbox.doku.com';
 
 /**
- * Generate DOKU Signature for API Request
+ * Generate Digest using Web Crypto API (Edge Compatible)
  */
-function generateSignature(clientId: string, requestId: string, requestTimestamp: string, requestTarget: string, digest: string, secret: string) {
+async function generateDigest(body: any) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify(body));
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+}
+
+/**
+ * Generate DOKU Signature using Web Crypto API (Edge Compatible)
+ */
+async function generateSignature(clientId: string, requestId: string, requestTimestamp: string, requestTarget: string, digest: string, secret: string) {
     const rawSignature = `Client-Id:${clientId}\n` +
         `Request-Id:${requestId}\n` +
         `Request-Timestamp:${requestTimestamp}\n` +
         `Request-Target:${requestTarget}\n` +
         `Digest:${digest}`;
     
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(rawSignature);
-    return 'HMACSHA256=' + hmac.digest('base64');
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const signatureData = encoder.encode(rawSignature);
+
+    const key = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signatureBuffer = await crypto.subtle.sign('HMAC', key, signatureData);
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+    
+    return `HMACSHA256=${signatureBase64}`;
 }
 
 export async function POST(req: Request) {
@@ -56,10 +79,13 @@ export async function POST(req: Request) {
             }
         };
 
-        const digest = crypto.createHash('sha256').update(JSON.stringify(body)).digest('base64');
-        const signature = generateSignature(DOKU_CLIENT_ID, requestId, requestTimestamp, requestTarget, digest, DOKU_SECRET_KEY);
+        const digest = await generateDigest(body);
+        const signature = await generateSignature(DOKU_CLIENT_ID, requestId, requestTimestamp, requestTarget, digest, DOKU_SECRET_KEY);
 
-        const response = await fetch(`${DOKU_API_URL}${requestTarget}`, {
+        const baseUrl = DOKU_API_URL.endsWith('/') ? DOKU_API_URL.slice(0, -1) : DOKU_API_URL;
+        const fullUrl = `${baseUrl}${requestTarget}`;
+
+        const response = await fetch(fullUrl, {
             method: 'POST',
             headers: {
                 'Client-Id': DOKU_CLIENT_ID,
