@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Locale, locales, localePaths } from '@/i18n/config';
@@ -69,6 +68,18 @@ const tools: Record<string, {
     category: 'video-compression',
   },
 };
+
+export async function generateStaticParams() {
+  const params: { locale: string; slug: string }[] = [];
+
+  for (const locale of locales) {
+    for (const [slug] of Object.entries(tools)) {
+      params.push({ locale, slug });
+    }
+  }
+
+  return params;
+}
 
 
 

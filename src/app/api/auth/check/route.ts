@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 export const runtime = 'edge';
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
@@ -19,38 +19,48 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. Look for the profile and active subscription in the database
-    const profile = await (prisma as any).profile.findUnique({
-      where: { email: email.toLowerCase() },
-      include: {
-        subscriptions: {
-          where: {
-            status: 'active',
-            OR: [
-              { endDate: { gte: new Date() } },
-              { endDate: null } // Lifetime has no end date
-            ]
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }
-      }
-    });
+    // 2. Look for the profile and active subscription in Supabase
+    // We fetch the profile and join with active subscriptions
+    const { data: profile, error: profileError } = await db
+      .from('Profile')
+      .select(`
+        id,
+        role,
+        Subscription:Subscription (
+          planType,
+          endDate,
+          status
+        )
+      `)
+      .eq('email', email.toLowerCase())
+      .eq('Subscription.status', 'active')
+      .single();
 
-    if (!profile || profile.subscriptions.length === 0) {
+    if (profileError || !profile) {
       return NextResponse.json({ 
         status: 'free',
         message: 'No active subscription found for this email.' 
       }, { status: 403 });
     }
 
-    const sub = profile.subscriptions[0];
+    // Filter active subscriptions by date
+    const activeSub = profile.Subscription.find((sub: any) => {
+      if (!sub.endDate) return true; // Lifetime
+      return new Date(sub.endDate) >= new Date();
+    });
+
+    if (!activeSub) {
+      return NextResponse.json({ 
+        status: 'free',
+        message: 'Subscription has expired.' 
+      }, { status: 403 });
+    }
 
     return NextResponse.json({
       status: 'pro',
-      plan: sub.planType,
+      plan: activeSub.planType,
       role: profile.role,
-      expiry: sub.endDate
+      expiry: activeSub.endDate
     });
 
   } catch (error) {
