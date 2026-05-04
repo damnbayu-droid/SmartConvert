@@ -70,17 +70,7 @@ const tools: Record<string, {
   },
 };
 
-export async function generateStaticParams() {
-  const params: { locale: string; slug: string }[] = [];
 
-  for (const locale of locales) {
-    for (const [slug] of Object.entries(tools)) {
-      params.push({ locale, slug });
-    }
-  }
-
-  return params;
-}
 
 export async function generateMetadata({
   params,

@@ -4,9 +4,7 @@ import { Locale, locales } from '@/i18n/config';
 import { HeroSection, FeaturedTools, HowItWorks } from '@/components/hero-section';
 import { ToolFAQ } from '@/components/tool-faq';
 
-export function generateStaticParams() {
-  return locales.map((locale) => ({ locale }));
-}
+
 
 export default async function HomePage({
   params,
