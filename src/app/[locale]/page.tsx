@@ -4,6 +4,9 @@ import { Locale, locales } from '@/i18n/config';
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
+
+export const dynamic = 'force-static';
+export const dynamicParams = false;
 import { HeroSection, FeaturedTools, HowItWorks } from '@/components/hero-section';
 import { ToolFAQ } from '@/components/tool-faq';
 
