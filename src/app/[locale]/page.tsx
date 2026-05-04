@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import { setRequestLocale } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
 import { HeroSection, FeaturedTools, HowItWorks } from '@/components/hero-section';
