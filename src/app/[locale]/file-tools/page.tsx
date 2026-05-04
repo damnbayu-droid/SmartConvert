@@ -1,6 +1,10 @@
 import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
 
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
+
 
 import { Footer } from '@/components/footer';
 import Link from 'next/link';

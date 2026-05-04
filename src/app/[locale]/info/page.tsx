@@ -1,9 +1,12 @@
 import { useTranslations } from 'next-intl';
-import { getTranslations } from 'next-intl/server';
+import { setRequestLocale, getTranslations } from 'next-intl/server';
+import { Locale, locales } from '@/i18n/config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Shield, Zap, Image as ImageIcon, Video, FileArchive, ServerOff, Smartphone } from 'lucide-react';
 
-
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
