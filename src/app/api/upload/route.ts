@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export const runtime = 'edge';
 
 // Rate limiting - simple in-memory (in production, use Redis)
 const rateLimits = new Map<string, { count: number; resetAt: number }>();

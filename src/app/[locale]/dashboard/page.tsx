@@ -10,7 +10,6 @@ import {
   Clock
 } from 'lucide-react';
 
-export const runtime = 'edge';
 
 export default function DashboardPage() {
   const stats = [

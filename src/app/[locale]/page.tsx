@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { HeroSection, FeaturedTools, HowItWorks } from '@/components/hero-section';
 import { ToolFAQ } from '@/components/tool-faq';

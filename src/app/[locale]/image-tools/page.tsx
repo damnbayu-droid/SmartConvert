@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
