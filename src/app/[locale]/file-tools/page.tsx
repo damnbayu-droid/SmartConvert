@@ -1,5 +1,5 @@
 
-import { setRequestLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
 
 
@@ -67,7 +67,6 @@ export default async function FileToolsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  setRequestLocale(locale);
 
   return (
     <div className="flex min-h-screen flex-col">

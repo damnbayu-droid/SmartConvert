@@ -1,4 +1,4 @@
-import { setRequestLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Locale, locales, localePaths } from '@/i18n/config';
 import { ToolWrapper } from '@/components/tool-wrapper';
@@ -192,7 +192,6 @@ export default async function ToolPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  setRequestLocale(locale);
 
   const tool = tools[slug];
 

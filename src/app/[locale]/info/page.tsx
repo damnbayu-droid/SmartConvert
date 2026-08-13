@@ -1,6 +1,6 @@
 
 import { useTranslations } from 'next-intl';
-import { setRequestLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { Locale, locales } from '@/i18n/config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Shield, Zap, Image as ImageIcon, Video, FileArchive, ServerOff, Smartphone } from 'lucide-react';

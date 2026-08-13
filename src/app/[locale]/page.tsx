@@ -1,8 +1,13 @@
-
+import { locales } from '@/i18n/config';
 import { HeroSection, FeaturedTools, HowItWorks } from '@/components/hero-section';
 import { ToolFAQ } from '@/components/tool-faq';
 
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
 
+export const dynamic = 'force-static';
+export const dynamicParams = false;
 
 export default async function HomePage({
   params,
@@ -10,7 +15,6 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  setRequestLocale(locale);
 
   return (
     <div className="flex min-h-screen flex-col">
